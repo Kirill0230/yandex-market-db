@@ -1,241 +1,262 @@
-# Маркетплейс Яндекс Маркет
+# Маркетплейс «Яндекс Маркет» — платформа на PostgreSQL
 
-## 1. Описание системы
-
-Разрабатываемая база данных предназначена для поддержки работы маркетплейсас Яндекс Маркета.
-
-Маркетплейс представляют собой платформу, на которой продавцы размещают товары, а пользователи могут просматривать товары, добавлять товары в корзину, оформлять заказы и оставлять отзывы.
-
-Система должна обеспечивать хранение информации необходимой для работы маркетплейса.
+Проектирование и эксплуатация базы данных маркетплейса — от ER-модели до
+отказоустойчивого кластера PostgreSQL с мониторингом, бэкапами, нагрузочным
+тестированием, chaos-инжинирингом и BI-пайплайном для аналитики.
 
 ---
 
+## 1. Предметная область
 
-## 2. Функциональные требования
+Маркетплейс — платформа, на которой продавцы размещают товары, а
+пользователи просматривают товары, добавляют их в корзину, оформляют заказы
+и оставляют отзывы. База данных обеспечивает хранение всей информации,
+необходимой для работы такой платформы.
 
-### Пользователи
+Функциональные требования:
 
-Система должна поддерживать:
+- **Пользователи** — профиль, несколько адресов доставки, несколько
+  банковских карт на одного пользователя.
+- **Продавцы** — привязаны к учётной записи пользователя, размещают товары.
+- **Каталог** — товары, категории и подкатегории, дополнительные
+  характеристики; один товар может продаваться несколькими продавцами
+  (сущность `product_detail`).
+- **Корзина** — добавление товаров, изменение количества.
+- **Избранное** — список избранных товаров на пользователя.
+- **Заказы** — привязка к пользователю, дате, доставке и платёжной карте;
+  один заказ может содержать несколько товаров.
+- **Доставка** — несколько способов доставки, стоимость зависит от региона.
+- **Отзывы** — на товары и на продавцов, с текстовым комментарием.
+- **История цен** — хранение истории изменения цены товара.
 
-- хранение информации о пользователях
-- возможность хранения нескольких адресов доставки для одного пользователя
-- возможность хранения нескольких банковских карт пользователя
-
----
-
-###  Продавцы
-
-Система должна поддерживать:
-
-- связь продавца с учетной записью пользователя
-- размещения товаров
-
----
-
-###  Каталог товаров
-
-Система должна поддерживать:
-
-- хранение информации о товарах
-- разделение товаров на категории и подкатегории
-- хранение дополнительных характеристик товара
-
-Один товар может продаваться несколькими продавцами.
+ER-модель — `schema.dbml` (открывается в [dbdiagram.io](https://dbdiagram.io)).
 
 ---
 
-### Предложения товаров
+## 2. Что сделано
 
-Система должна поддерживать:
+Проект собирался пошагово, слой за слоем. Ниже — сквозной обзор по
+подсистемам.
 
-- хранение информации о товаре у конкретного продавца
-- хранение количества товара
+### 2.1. Схема БД и миграции (`migrations/`)
 
----
+Схема разворачивается версионируемыми SQL-миграциями (накатываются вручную
+либо через `liquibase/`, changelog — `migrations/changelog.xml`):
 
-### Корзина
+| Миграция | Назначение |
+|---|---|
+| `001_create_reference_tables.sql` | справочники (регионы, категории и т.д.) |
+| `002_create_users_related.sql` | пользователи, адреса, карты |
+| `003_create_catalog.sql` | товары, категории, предложения продавцов |
+| `004_create_ordering.sql` | корзина, заказы, доставка |
+| `005_create_reviews.sql` | отзывы на товары и продавцов |
+| `006_create_monitoring_user.sql` | служебный пользователь для `postgres_exporter` |
+| `007_add_product_views_count.sql` | денормализация — счётчик просмотров товара |
+| `008_create_order_status_log.sql` | журнал смены статусов заказа (insert-only) |
+| `009–011` | индексы под нагрузочные запросы (`product_detail`, подзапросы карточки товара, история цен) |
+| `012_mv_revenue_by_category.sql` | материализованное представление «выручка по категориям» |
+| `013_enable_pg_stat_statements.sql` | включение расширения для профилирования запросов |
+| `014_cdc_setup.sql` | логическая репликация (`pgoutput`, публикация) для CDC |
+| `015_create_metabase_db.sql` | служебная БД метаданных Metabase |
 
-Система должна поддерживать:
+### 2.2. Наполнение данными (`seed/`)
 
-- добавление товаров в корзину пользователя
-- возможность изменения количества товара в корзине
+Python-скрипты (`seed_v005.py`, `seed_v008.py`) генерируют синтетические
+данные объёмом, задаваемым `SEED_COUNT` (по умолчанию 200 000 строк на
+таблицу), включая реалистичный набор статусов заказа
+(`created / paid / packed / shipped / delivered / cancelled`) для
+`order_status_log`.
 
----
+### 2.3. Backend API (`backend/`)
 
-### Избранные товары
+Java + Spring Boot (Gradle) сервис поверх БД: контроллеры для карточки
+товара, корзины, истории цен, событий изменения цены, выручки по
+категориям и топ продавцов (`ru/kirill0230/controller/...`), с
+соответствующими репозиториями и DTO. Используется как источник нагрузки
+для профилирования и как потребитель данных о ценах.
 
-Система должна поддерживать:
+### 2.4. Высокая доступность PostgreSQL (`patroni/`, `haproxy/`)
 
-- размещение товаров в список избранного для каждого пользователя
+- **Patroni + etcd** — кластер из двух узлов PostgreSQL 17
+  (`postgres1`, `postgres2`) под управлением Patroni, координация через
+  `etcd` (DCS). Автоматический failover при потере лидера.
+- **HAProxy** — единая точка входа для клиентов, health-check
+  `GET /primary` определяет текущего лидера и направляет трафик только на
+  него.
+- Проверено вручную (`patroni/step5.md`): при `docker stop` текущего
+  лидера кластер выбирает новый leader и HAProxy отдаёт `pg_is_in_recovery()
+  = false` на новом узле.
 
----
+### 2.5. Мониторинг (`prometheus/`, `grafana/`)
 
-### Заказы
+Prometheus собирает метрики с `postgres_exporter`, Patroni REST API
+(`:8008/metrics`), `etcd` (`:2379/metrics`) и HAProxy (`:8404/metrics`).
+Grafana поднимается с готовыми дашбордами (`grafana/dashboards/`):
+`postgres.json`, `chaos.json` (роли Patroni, доступность etcd/HAProxy/
+PostgreSQL), `optimization.json`, `backup-minio.json`.
 
-Система должна поддерживать:
+### 2.6. Бэкапы (`backup/`, `backup-exporter/`, `minio/`)
 
-- связь заказа с пользователем
-- хранение даты заказа
-- связь с доставкой
-- связь с платежной картой
+- `backup/db_backup.sh` — снятие дампа PostgreSQL и загрузка в MinIO
+  (S3-совместимое хранилище) по расписанию (`BACKUP_INTERVAL`), с ротацией
+  (`BACKUP_RETENTION_COUNT`).
+- `backup/restore.sh` — восстановление из самого свежего дампа, из
+  конкретного файла или просмотр списка доступных дампов (`--list`).
+- `backup-exporter/` — экспортёр метрик о бэкапах (возраст, размер, статус
+  последнего запуска) для Prometheus/Grafana.
+- `minio/init-minio.sh` и `minio/policies/backup-policy.json` — создание
+  бакета и политики доступа для отдельного backup-пользователя.
 
-Один заказ может содержать несколько товаров.
+### 2.7. Нагрузочное тестирование и профилирование (`load/`, `profiling/`)
 
----
+Нагрузка генерируется через k6 (`load/k6_script.js` — смешанный профиль,
+`load/k6_write_only.js` — только запись), метрики запросов снимаются через
+`pg_stat_statements`. Три прогона зафиксированы в `profiling/1..3`:
 
-### Доставка
+1. **Baseline** — p95 224.70 ms, avg 41.22 ms, 3.15% HTTP-ошибок.
+2. **Деградация** — после добавления денормализованной колонки, новой
+   таблицы с FK и усложнения запроса карточки товара подзапросами: p95
+   вырос до 1353.09 ms (+502%). Причины по каждому запросу разобраны в
+   `profiling/README.md` (Seq Scan вместо индекса, HashAggregate на диске
+   и т.д.).
+3. **Оптимизация** — добавлены индексы (`009`–`011`) и материализованное
+   представление (`012`): p95 просел до 54.09 ms, деградация на запись
+   (INSERT в корзину/историю цен) — незначительная.
 
-Система должна поддерживать:
+Итоговая сводка по каждому запросу — в `profiling/README.md`.
 
-- хранение различных способов доставки
-- зависимость стоимости доставки от региона
----
+### 2.8. Chaos engineering (`chaos/`)
 
-###  Отзывы
+Проверка отказоустойчивости кластера инъекцией реальных сбоев, логи
+прогонов — `chaos/logs/`, разбор — `chaos/README.md`:
 
-Система должна поддерживать:
+- **Сценарий 1 — отказ primary PostgreSQL** (`docker kill`). Failover занял
+  30 секунд (TTL лидерского ключа в etcd + интервал health-check
+  HAProxy), клиенты в этом окне получали `server closed the connection
+  unexpectedly`. После восстановления бывший primary поднимается как
+  реплика через `pg_rewind`.
+- **Сценарий 2 — потеря связи с etcd** (`docker network disconnect`).
+  Работающий лидер сам демотируется в read-only (защита от split-brain по
+  дизайну Patroni), новый лидер выбрать некому — HAProxy не пропускает
+  запросы на запись до восстановления связи с DCS.
 
-- возможность оставлять отзывы о товарах
-- возможность оставлять отзывы о продавцах
-- возмжность добавлять текстовый коментарий
+В `chaos/README.md` также перечислены слабые места текущей конфигурации
+(etcd/HAProxy как SPOF) и way forward (кластер etcd из 3 узлов, второй
+HAProxy + VIP, PgBouncer, алерты).
 
----
+### 2.9. BI-пайплайн: CDC → Kafka → ClickHouse → Metabase (`debezium/`, `clickhouse/`, `docker-compose.bi.yml`)
 
-###  История цен
-
-Система должна поддерживать:
-
-- хранение истории изменения цены товара
-
----
-
-## BI-метрики: CDC PostgreSQL → Kafka → ClickHouse → Metabase
-
-### Выбранная таблица
-
-Для BI-аналитики выбрана таблица `public.order_status_log` (миграция
-`008_create_order_status_log.sql`).
-
-Почему именно она:
-
-- **растёт быстрее остальных** — каждое изменение статуса любого заказа
-  порождает новую строку (insert-only журнал), в отличие от справочников и
-  агрегатных таблиц вроде `order_header`;
-- **наполнена сидами** из ЛР по сидингу (`seed_v008.py` генерирует
-  `5 * SEED_COUNT` строк, статусы выбираются из реалистичного набора
-  `created / paid / packed / shipped / delivered / cancelled`);
-- **содержит все поля для метрик** — временная метка (`changed_at`),
-  категориальная величина (`status`), идентификаторы (`log_id`,
-  `order_header_id`), что покрывает требования к BI-метрикам.
-
-Поля, используемые в метриках:
-
-| поле              | роль в BI                                  |
-|-------------------|--------------------------------------------|
-| `log_id`          | счётчик событий (`count()`), уникальность  |
-| `order_header_id` | связь с заказом, кол-во уникальных заказов |
-| `status`          | категориальный срез                        |
-| `changed_at`      | временная ось, тренды                      |
-
-### Архитектура пайплайна
+Для BI-аналитики выбрана таблица `order_status_log` — insert-only журнал,
+растущий быстрее остальных таблиц и содержащий всё нужное для метрик
+(временная метка, категориальный статус, идентификаторы).
 
 ```
-PostgreSQL (Patroni)  →  Debezium  →  Kafka (KRaft)  →  ClickHouse Kafka Engine
-        │                                                       │
-        └── метаданные Metabase                                  └── MergeTree
-                  │                                                       │
-                  └──────────── Metabase ── дашборд ──────────────────────┘
+PostgreSQL (Patroni) → Debezium → Kafka (KRaft) → ClickHouse (Kafka Engine → MV → MergeTree) → Metabase
 ```
 
-- **PostgreSQL** — источник, logical replication через `pgoutput`,
-  публикация `bi_publication`, `REPLICA IDENTITY FULL` для `order_status_log`
-  (миграция `014_cdc_setup.sql`). Debezium ходит через HAProxy
-  (`haproxy:5000`) и попадает на текущего primary в кластере Patroni.
-- **Debezium** — коннектор `postgres-connector` (Kafka Connect REST API на
-  порту 8083). Конфиг — `debezium/connector.config.json`, регистрация —
-  идемпотентный `PUT /connectors/{name}/config` через `debezium/register.sh`.
-  `snapshot.mode = initial` обеспечивает начальную загрузку существующих
-  строк, далее — streaming.
-- **Kafka** — режим KRaft (без ZooKeeper), один брокер, имя
-  `kafka:9092` рекламируется через `KAFKA_CFG_ADVERTISED_LISTENERS`. Топик
-  CDC: `ym.public.order_status_log` (создаётся автоматически).
-  Consumer group для CH — `clickhouse_bi_consumer_ym` (уникальный).
-- **ClickHouse** — `Kafka Engine` читает сырые JSON-сообщения,
-  `Materialized View` парсит их и пишет в `MergeTree`-таблицу
-  `bi.order_status_log` (см. `clickhouse/init/01_create_tables.sql`).
-- **Metabase** — два подключения: к PostgreSQL (своя БД `metabase` для
-  метаданных, миграция `015_create_metabase_db.sql`) и к ClickHouse
-  (только SELECT, пользователь `metabase`).
+- **PostgreSQL** — логическая репликация (`pgoutput`), публикация
+  `bi_publication`, `REPLICA IDENTITY FULL` на `order_status_log`
+  (`014_cdc_setup.sql`); Debezium подключается через HAProxy, попадая на
+  актуального primary.
+- **Debezium** — коннектор `postgres-connector` (Kafka Connect REST API,
+  порт 8083), конфиг `debezium/connector.config.json`, идемпотентная
+  регистрация через `debezium/register.sh`. `snapshot.mode=initial` —
+  первичная загрузка существующих строк, дальше — потоковая репликация.
+- **Kafka** — режим KRaft (без ZooKeeper), топик `ym.public.order_status_log`
+  создаётся автоматически.
+- **ClickHouse** — `Kafka Engine` читает сырые сообщения, Materialized View
+  парсит их в `MergeTree`-таблицу `bi.order_status_log`
+  (`clickhouse/init/01_create_tables.sql`).
+- **Metabase** — подключён к PostgreSQL (свои метаданные,
+  `015_create_metabase_db.sql`) и к ClickHouse (read-only пользователь
+  `metabase`). Дашборд включает как минимум три визуализации: KPI за 7
+  дней, тренд событий за 30 дней по дням, распределение по статусам, плюс
+  конверсию `created → delivered`. SQL-запросы — в разделе про Metabase
+  ниже.
+- Сквозная проверка пайплайна — `./test-e2e.sh` (INSERT/UPDATE/DELETE в
+  PostgreSQL → проверка результата в ClickHouse).
 
-### Запуск
+### 2.10. CI (`.gitlab-ci.yml`)
 
-```bash
-docker compose -f docker-compose.yml -f docker-compose.bi.yml up -d --build
+Подключён внешний shared-пайплайн `db-infra/lab-stage-ci` (`testing-job.yml`)
+для прогона тестовой стадии.
+
+---
+
+## 3. Технологический стек
+
+PostgreSQL 17 · Patroni · etcd · HAProxy · Prometheus · Grafana · MinIO ·
+Liquibase · Java / Spring Boot (Gradle) · k6 · Kafka (KRaft) · Kafka
+Connect + Debezium · ClickHouse · Metabase · Docker Compose.
+
+---
+
+## 4. Структура репозитория
+
+```
+.
+├── backend/            # Spring Boot API (Java, Gradle)
+├── backup/             # скрипты бэкапа/восстановления PostgreSQL → MinIO
+├── backup-exporter/    # экспортёр метрик бэкапов для Prometheus
+├── chaos/              # сценарии и логи chaos-тестирования HA-кластера
+├── clickhouse/         # инициализация ClickHouse (Kafka Engine, MV, MergeTree)
+├── debezium/           # конфиг коннектора CDC и скрипт регистрации
+├── grafana/            # дашборды и provisioning
+├── haproxy/            # конфигурация HAProxy
+├── liquibase/          # образ для наката миграций через Liquibase
+├── load/               # сценарии нагрузочного тестирования (k6)
+├── migrations/         # SQL-миграции схемы + changelog.xml
+├── minio/              # инициализация бакета и политик доступа
+├── patroni/            # конфигурация Patroni-кластера
+├── profiling/          # результаты нагрузочных прогонов и профилирования
+├── prometheus/         # конфигурация сбора метрик
+├── scripts/            # вспомогательные CI/entrypoint-скрипты
+├── seed/               # генерация синтетических данных
+├── schema.dbml         # ER-модель (dbdiagram.io)
+├── docker-compose.yml       # основной стек (БД, HA, мониторинг, бэкап, backend)
+├── docker-compose.bi.yml    # BI-стек (Kafka, Debezium, ClickHouse, Metabase)
+├── test-e2e.sh          # сквозная проверка CDC-пайплайна
+└── .env.example         # шаблон переменных окружения
 ```
 
-Старые сервисы (Patroni, HAProxy, Prometheus, Grafana, MinIO, бэкап,
-backend и т. д.) остаются работать без изменений — добавляются только
-Kafka, kafka-ui, Kafka Connect, Debezium-register, ClickHouse и Metabase.
+---
 
-UI:
+## 5. Запуск
 
-- Metabase — http://localhost:3001 (первичная настройка через мастер)
+1. Скопировать `.env.example` в `.env` и при необходимости поправить
+   значения.
+2. Основной стек:
+
+   ```bash
+   docker compose up -d --build
+   ```
+
+3. С BI-пайплайном:
+
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.bi.yml up -d --build
+   ```
+
+Полезные команды — в `help.txt` (бэкапы/восстановление, накат/откат одной
+миграции через Liquibase, остановка/старт узлов Patroni, нагрузочный
+прогон k6, сброс статистики `pg_stat_statements`).
+
+UI после запуска BI-стека:
+
+- Metabase — http://localhost:3001
 - kafka-ui — http://localhost:8090
-- ClickHouse HTTP — http://localhost:8123 (`bi`/`bi`)
+- ClickHouse HTTP — http://localhost:8123
 - Kafka Connect REST — http://localhost:8083
 
-### Проверка пайплайна end-to-end
+> **Важно:** каталог `metabase-plugins/` (JDBC-драйверы для Metabase,
+> ~180 МБ) в репозиторий не включается — см. `.gitignore`. Если требуется
+> подключать в Metabase дополнительные источники (Oracle, BigQuery,
+> Snowflake и т.д.), драйверы нужно скачать отдельно и положить в эту
+> папку локально.
 
-Скрипт `./test-e2e.sh` выполняет INSERT/UPDATE/DELETE по
-`order_status_log` в PostgreSQL и читает результат из ClickHouse.
+---
 
-### Дашборд Metabase
+## 6. Переменные окружения
 
-В Metabase создаётся дашборд минимум с тремя визуализациями разных типов.
-SQL-запросы выполняются к ClickHouse-датасорсу:
-
-1. **KPI: количество событий смены статуса за 7 дней** (число)
-
-   ```sql
-   SELECT count() AS events_7d
-   FROM bi.order_status_log
-   WHERE is_deleted = 0
-     AND changed_at >= now() - INTERVAL 7 DAY;
-   ```
-
-2. **Тренд событий по дням за последние 30 дней** (линейный график)
-
-   ```sql
-   SELECT toDate(changed_at) AS day,
-          count() AS events
-   FROM bi.order_status_log
-   WHERE is_deleted = 0
-     AND changed_at >= today() - 30
-   GROUP BY day
-   ORDER BY day;
-   ```
-
-3. **Распределение статусов** (bar / pie chart)
-
-   ```sql
-   SELECT status,
-          count() AS events,
-          uniqExact(order_header_id) AS orders
-   FROM bi.order_status_log
-   WHERE is_deleted = 0
-   GROUP BY status
-   ORDER BY events DESC;
-   ```
-
-Дополнительная метрика — доля доставленных заказов от созданных
-(конверсия воронки):
-
-```sql
-SELECT
-    countIf(status = 'created')   AS created,
-    countIf(status = 'delivered') AS delivered,
-    round(countIf(status = 'delivered') / nullIf(countIf(status = 'created'), 0) * 100, 2)
-        AS delivered_pct
-FROM bi.order_status_log
-WHERE is_deleted = 0;
-```
+Полный список — в `.env.example`. Файл `.env` с реальными значениями в
+репозиторий не попадает (см. `.gitignore`).
