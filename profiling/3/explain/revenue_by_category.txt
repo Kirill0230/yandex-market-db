@@ -1,0 +1,10 @@
+Sort  (cost=1570.84..1614.12 rows=17312 width=47) (actual time=14.364..15.635 rows=17312 loops=1)
+  Sort Key: revenue DESC
+  Sort Method: quicksort  Memory: 1979kB
+  Buffers: shared hit=5 read=177
+  ->  Seq Scan on mv_revenue_by_category  (cost=0.00..352.12 rows=17312 width=47) (actual time=0.139..5.778 rows=17312 loops=1)
+        Buffers: shared hit=2 read=177
+Planning:
+  Buffers: shared hit=87 read=6
+Planning Time: 2.647 ms
+Execution Time: 16.861 ms

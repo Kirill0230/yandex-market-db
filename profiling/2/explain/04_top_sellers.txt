@@ -1,0 +1,72 @@
+                                                                                                          QUERY PLAN                                                                                                           
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=384840.71..384840.89 rows=10 width=56) (actual time=757.990..770.176 rows=10 loops=1)
+   Buffers: shared hit=10345 read=17778, temp read=13206 written=13355
+   ->  WindowAgg  (cost=384840.71..401125.98 rows=930588 width=56) (actual time=748.362..760.548 rows=10 loops=1)
+         Buffers: shared hit=10345 read=17778, temp read=13206 written=13355
+         ->  Sort  (cost=384840.69..387167.16 rows=930588 width=48) (actual time=748.336..760.517 rows=10 loops=1)
+               Sort Key: (sum(((od.quantity)::numeric * pd.price))) DESC
+               Sort Method: quicksort  Memory: 4054kB
+               Buffers: shared hit=10345 read=17778, temp read=13206 written=13355
+               ->  Finalize GroupAggregate  (cost=115769.18..235330.21 rows=930588 width=48) (actual time=596.273..748.626 rows=60000 loops=1)
+                     Group Key: s.seller_id, u.login
+                     Buffers: shared hit=10342 read=17778, temp read=13206 written=13355
+                     ->  Gather Merge  (cost=115769.18..215942.96 rows=775490 width=48) (actual time=596.256..713.688 rows=175239 loops=1)
+                           Workers Planned: 2
+                           Workers Launched: 2
+                           Buffers: shared hit=10342 read=17778, temp read=13206 written=13355
+                           ->  Partial GroupAggregate  (cost=114769.16..125432.15 rows=387745 width=48) (actual time=586.720..671.695 rows=58413 loops=3)
+                                 Group Key: s.seller_id, u.login
+                                 Buffers: shared hit=10342 read=17778, temp read=13206 written=13355
+                                 ->  Sort  (cost=114769.16..115738.52 rows=387745 width=28) (actual time=586.686..609.231 rows=308740 loops=3)
+                                       Sort Key: s.seller_id, u.login
+                                       Sort Method: external merge  Disk: 12192kB
+                                       Buffers: shared hit=10342 read=17778, temp read=13206 written=13355
+                                       Worker 0:  Sort Method: external merge  Disk: 12376kB
+                                       Worker 1:  Sort Method: external merge  Disk: 12296kB
+                                       ->  Parallel Hash Join  (cost=43907.46..69498.72 rows=387745 width=28) (actual time=296.325..529.774 rows=308740 loops=3)
+                                             Hash Cond: (s.user_id = u.user_id)
+                                             Buffers: shared hit=10214 read=17778, temp read=8598 written=8732
+                                             ->  Hash Join  (cost=38809.40..63382.81 rows=387745 width=20) (actual time=270.151..422.510 rows=308740 loops=3)
+                                                   Hash Cond: (pd.seller_id = s.seller_id)
+                                                   Buffers: shared hit=8509 read=17016, temp read=8598 written=8732
+                                                   ->  Parallel Hash Join  (cost=37193.40..60748.91 rows=387745 width=16) (actual time=261.948..353.421 rows=308740 loops=3)
+                                                         Hash Cond: (od.product_detail_id = pd.product_detail_id)
+                                                         Buffers: shared hit=8387 read=16340, temp read=8598 written=8732
+                                                         ->  Parallel Hash Join  (cost=14900.40..31966.08 rows=387745 width=8) (actual time=36.714..165.949 rows=308740 loops=3)
+                                                               Hash Cond: (od.order_header_id = oh.order_header_id)
+                                                               Buffers: shared hit=192 read=15934
+                                                               ->  Parallel Seq Scan on order_detail od  (cost=0.00..15315.67 rows=666667 width=12) (actual time=0.024..21.408 rows=533333 loops=3)
+                                                                     Buffers: shared hit=96 read=8553
+                                                               ->  Parallel Hash  (cost=12477.00..12477.00 rows=193872 width=4) (actual time=36.115..36.115 rows=154231 loops=3)
+                                                                     Buckets: 524288  Batches: 1  Memory Usage: 22272kB
+                                                                     Buffers: shared hit=96 read=7381
+                                                                     ->  Parallel Seq Scan on order_header oh  (cost=0.00..12477.00 rows=193872 width=4) (actual time=0.036..19.233 rows=154231 loops=3)
+                                                                           Filter: ((order_date >= '2024-01-01 00:00:00'::timestamp without time zone) AND (order_date <= '2025-12-31 00:00:00'::timestamp without time zone))
+                                                                           Rows Removed by Filter: 112436
+                                                                           Buffers: shared hit=96 read=7381
+                                                         ->  Parallel Hash  (cost=13601.00..13601.00 rows=500000 width=16) (actual time=67.093..67.093 rows=400000 loops=3)
+                                                               Buckets: 262144  Batches: 16  Memory Usage: 6080kB
+                                                               Buffers: shared hit=8195 read=406, temp written=5468
+                                                               ->  Parallel Seq Scan on product_detail pd  (cost=0.00..13601.00 rows=500000 width=16) (actual time=0.022..25.724 rows=400000 loops=3)
+                                                                     Buffers: shared hit=8195 read=406
+                                                   ->  Hash  (cost=866.00..866.00 rows=60000 width=8) (actual time=8.037..8.037 rows=60000 loops=3)
+                                                         Buckets: 65536  Batches: 1  Memory Usage: 2856kB
+                                                         Buffers: shared hit=122 read=676
+                                                         ->  Seq Scan on seller s  (cost=0.00..866.00 rows=60000 width=8) (actual time=0.045..4.036 rows=60000 loops=3)
+                                                               Buffers: shared hit=122 read=676
+                                             ->  Parallel Hash  (cost=3627.47..3627.47 rows=117647 width=16) (actual time=25.779..25.779 rows=66667 loops=3)
+                                                   Buckets: 262144  Batches: 1  Memory Usage: 12224kB
+                                                   Buffers: shared hit=1689 read=762
+                                                   ->  Parallel Seq Scan on users u  (cost=0.00..3627.47 rows=117647 width=16) (actual time=5.418..14.946 rows=66667 loops=3)
+                                                         Buffers: shared hit=1689 read=762
+ Planning:
+   Buffers: shared hit=284 read=3
+ Planning Time: 1.231 ms
+ JIT:
+   Functions: 127
+   Options: Inlining false, Optimization false, Expressions true, Deforming true
+   Timing: Generation 2.665 ms (Deform 1.154 ms), Inlining 0.000 ms, Optimization 1.157 ms, Emission 24.897 ms, Total 28.719 ms
+ Execution Time: 784.586 ms
+(68 rows)
+

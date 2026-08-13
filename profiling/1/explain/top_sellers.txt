@@ -1,0 +1,53 @@
+Limit  (cost=53192.03..53192.28 rows=50 width=88) (actual time=170.802..170.813 rows=50 loops=1)
+  Buffers: shared hit=2749
+  ->  WindowAgg  (cost=53192.03..53991.90 rows=159968 width=88) (actual time=170.800..170.809 rows=50 loops=1)
+        Buffers: shared hit=2749
+        ->  WindowAgg  (cost=48393.03..51192.46 rows=159968 width=56) (actual time=169.124..170.282 rows=6000 loops=1)
+              Buffers: shared hit=2749
+              ->  Sort  (cost=48393.02..48792.94 rows=159968 width=48) (actual time=169.120..169.270 rows=6000 loops=1)
+                    Sort Key: (sum(((od.quantity)::numeric * pd.price))) DESC
+                    Sort Method: quicksort  Memory: 455kB
+                    Buffers: shared hit=2749
+                    ->  HashAggregate  (cost=25458.18..29644.84 rows=159968 width=48) (actual time=167.579..168.184 rows=6000 loops=1)
+                          Group Key: s.seller_id, u.login
+                          Planned Partitions: 8  Batches: 1  Memory Usage: 3089kB
+                          Buffers: shared hit=2746
+                          ->  Hash Join  (cost=7365.80..11510.97 rows=159968 width=28) (actual time=55.154..138.369 rows=160000 loops=1)
+                                Hash Cond: (s.user_id = u.user_id)
+                                Buffers: shared hit=2746
+                                ->  Hash Join  (cost=6669.80..10394.97 rows=159968 width=20) (actual time=45.609..110.450 rows=160000 loops=1)
+                                      Hash Cond: (pd.seller_id = s.seller_id)
+                                      Buffers: shared hit=2500
+                                      ->  Hash Join  (cost=6507.80..9812.75 rows=159968 width=16) (actual time=44.056..96.001 rows=160000 loops=1)
+                                            Hash Cond: (od.product_detail_id = pd.product_detail_id)
+                                            Buffers: shared hit=2473
+                                            ->  Hash Join  (cost=2947.80..5832.82 rows=159968 width=8) (actual time=17.138..44.459 rows=160000 loops=1)
+                                                  Hash Cond: (od.order_header_id = oh.order_header_id)
+                                                  Buffers: shared hit=1613
+                                                  ->  Seq Scan on order_detail od  (cost=0.00..2465.00 rows=160000 width=12) (actual time=0.024..6.083 rows=160000 loops=1)
+                                                        Buffers: shared hit=865
+                                                  ->  Hash  (cost=1948.00..1948.00 rows=79984 width=4) (actual time=16.730..16.731 rows=80000 loops=1)
+                                                        Buckets: 131072  Batches: 1  Memory Usage: 3837kB
+                                                        Buffers: shared hit=748
+                                                        ->  Seq Scan on order_header oh  (cost=0.00..1948.00 rows=79984 width=4) (actual time=0.026..8.082 rows=80000 loops=1)
+                                                              Filter: ((order_date >= '2024-01-01 00:00:00'::timestamp without time zone) AND (order_date <= '2026-12-31 00:00:00'::timestamp without time zone))
+                                                              Buffers: shared hit=748
+                                            ->  Hash  (cost=2060.00..2060.00 rows=120000 width=16) (actual time=26.468..26.469 rows=120000 loops=1)
+                                                  Buckets: 131072  Batches: 1  Memory Usage: 7020kB
+                                                  Buffers: shared hit=860
+                                                  ->  Seq Scan on product_detail pd  (cost=0.00..2060.00 rows=120000 width=16) (actual time=0.022..10.252 rows=120000 loops=1)
+                                                        Buffers: shared hit=860
+                                      ->  Hash  (cost=87.00..87.00 rows=6000 width=8) (actual time=1.502..1.503 rows=6000 loops=1)
+                                            Buckets: 8192  Batches: 1  Memory Usage: 299kB
+                                            Buffers: shared hit=27
+                                            ->  Seq Scan on seller s  (cost=0.00..87.00 rows=6000 width=8) (actual time=0.023..0.522 rows=6000 loops=1)
+                                                  Buffers: shared hit=27
+                                ->  Hash  (cost=446.00..446.00 rows=20000 width=16) (actual time=9.374..9.375 rows=20000 loops=1)
+                                      Buckets: 32768  Batches: 1  Memory Usage: 1233kB
+                                      Buffers: shared hit=246
+                                      ->  Seq Scan on users u  (cost=0.00..446.00 rows=20000 width=16) (actual time=0.070..5.248 rows=20000 loops=1)
+                                            Buffers: shared hit=246
+Planning:
+  Buffers: shared hit=294
+Planning Time: 3.077 ms
+Execution Time: 172.181 ms

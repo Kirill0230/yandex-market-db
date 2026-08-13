@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="
+        http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <include file="001_create_reference_tables.sql"/>
+    <include file="002_create_users_related.sql"/>
+    <include file="003_create_catalog.sql"/>
+    <include file="004_create_ordering.sql"/>
+    <include file="005_create_reviews.sql"/>
+    <include file="006_create_monitoring_user.sql"/>
+    <include file="007_add_product_views_count.sql" relativeToChangelogFile="true"/>
+    <include file="008_create_order_status_log.sql" relativeToChangelogFile="true"/>
+    <include file="009_idx_product_detail_product_id.sql"/>
+    <include file="010_idx_product_card_subqueries.sql"/>
+    <include file="011_idx_price_history_detail_date.sql"/>
+    <include file="012_mv_revenue_by_category.sql"/>
+    <include file="013_enable_pg_stat_statements.sql"/>
+
+</databaseChangeLog>

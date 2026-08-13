@@ -1,0 +1,40 @@
+                                                                                QUERY PLAN                                                                                 
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=104020.85..104020.85 rows=3 width=48) (actual time=293.939..298.058 rows=1 loops=1)
+   Sort Key: pph.change_date DESC
+   Sort Method: quicksort  Memory: 25kB
+   Buffers: shared hit=8550 read=43240 dirtied=1
+   ->  WindowAgg  (cost=104020.79..104020.82 rows=3 width=48) (actual time=293.925..298.044 rows=1 loops=1)
+         Buffers: shared hit=8547 read=43240 dirtied=1
+         ->  Sort  (cost=104020.77..104020.78 rows=3 width=16) (actual time=293.892..298.011 rows=1 loops=1)
+               Sort Key: pph.change_date
+               Sort Method: quicksort  Memory: 25kB
+               Buffers: shared hit=8547 read=43240 dirtied=1
+               ->  Gather  (cost=15851.01..104020.75 rows=3 width=16) (actual time=293.771..297.998 rows=1 loops=1)
+                     Workers Planned: 2
+                     Workers Launched: 2
+                     Buffers: shared hit=8547 read=43240 dirtied=1
+                     ->  Parallel Hash Join  (cost=14851.01..103020.45 rows=1 width=16) (actual time=278.105..285.273 rows=0 loops=3)
+                           Hash Cond: (pph.product_detail_id = pd.product_detail_id)
+                           Buffers: shared hit=8547 read=43240 dirtied=1
+                           ->  Parallel Seq Scan on product_price_history pph  (cost=0.00..86802.22 rows=520842 width=20) (actual time=0.065..250.082 rows=411704 loops=3)
+                                 Filter: (change_date >= (now() - '30 days'::interval))
+                                 Rows Removed by Filter: 1588602
+                                 Buffers: shared hit=98 read=42930 dirtied=1
+                           ->  Parallel Hash  (cost=14851.00..14851.00 rows=1 width=4) (actual time=17.994..17.995 rows=1 loops=3)
+                                 Buckets: 1024  Batches: 1  Memory Usage: 72kB
+                                 Buffers: shared hit=8291 read=310
+                                 ->  Parallel Seq Scan on product_detail pd  (cost=0.00..14851.00 rows=1 width=4) (actual time=15.644..17.939 rows=1 loops=3)
+                                       Filter: (product_id = 12345)
+                                       Rows Removed by Filter: 399999
+                                       Buffers: shared hit=8291 read=310
+ Planning:
+   Buffers: shared hit=226 read=1
+ Planning Time: 0.492 ms
+ JIT:
+   Functions: 47
+   Options: Inlining false, Optimization false, Expressions true, Deforming true
+   Timing: Generation 1.121 ms (Deform 0.514 ms), Inlining 0.000 ms, Optimization 0.704 ms, Emission 12.511 ms, Total 14.335 ms
+ Execution Time: 309.095 ms
+(36 rows)
+

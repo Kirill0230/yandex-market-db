@@ -1,0 +1,218 @@
+services:
+  etcd:
+    image: bitnamilegacy/etcd:3.5
+    container_name: etcd
+    restart: unless-stopped
+    environment:
+      ALLOW_NONE_AUTHENTICATION: "yes"
+      ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
+      ETCD_ADVERTISE_CLIENT_URLS: http://etcd:2379
+      ETCD_LISTEN_PEER_URLS: http://0.0.0.0:2380
+      ETCD_INITIAL_ADVERTISE_PEER_URLS: http://etcd:2380
+      ETCD_INITIAL_CLUSTER: default=http://etcd:2380
+    volumes:
+      - etcd_data:/bitnami/etcd
+
+  postgres1:
+    build:
+      context: ./patroni
+      dockerfile: Dockerfile
+    container_name: postgres1
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./patroni/patroni1.yml:/config/patroni.yml:ro
+      - ./patroni/post_init.sh:/config/post_init.sh:ro
+      - postgres1_data:/var/lib/postgresql/data
+    depends_on:
+      - etcd
+    shm_size: 1gb
+
+  postgres2:
+    build:
+      context: ./patroni
+      dockerfile: Dockerfile
+    container_name: postgres2
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./patroni/patroni2.yml:/config/patroni.yml:ro
+      - ./patroni/post_init.sh:/config/post_init.sh:ro
+      - postgres2_data:/var/lib/postgresql/data
+      
+    depends_on:
+      - etcd
+    
+    shm_size: 1gb
+
+  haproxy:
+    image: haproxy:2.9
+    container_name: haproxy
+    restart: unless-stopped
+    volumes:
+      - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    ports:
+      - "15432:5000"
+      - "5001:5001"
+      - "7001:7000"
+      - "8404:8404"
+    depends_on:
+      - postgres1
+      - postgres2
+    healthcheck:
+      test: ["CMD-SHELL", "echo > /dev/tcp/localhost/5000 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 30s
+
+  postgres_exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: postgres-exporter
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${POSTGRES_EXPORTER_USER}:${POSTGRES_EXPORTER_PASSWORD}@haproxy:5000/yandex_market?sslmode=disable"
+    ports:
+      - "9187:9187"
+    depends_on:
+      - haproxy
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+    depends_on:
+      - postgres_exporter
+
+  liquibase:
+    build:
+      context: .
+      dockerfile: liquibase/Dockerfile
+    container_name: liquibase
+    restart: "no"
+    depends_on:
+      - haproxy
+
+
+    env_file:
+      - .env
+
+    environment:
+      POSTGRES_HOST: haproxy
+      POSTGRES_PORT_INNER: 5000
+      LIQUIBASE_COMMAND_URL: jdbc:postgresql://haproxy:5000/${POSTGRES_DB}
+      LIQUIBASE_COMMAND_USERNAME: ${POSTGRES_USER}
+      LIQUIBASE_COMMAND_PASSWORD: ${POSTGRES_PASSWORD}
+      LIQUIBASE_COMMAND_CHANGELOG_FILE: changelog.xml
+
+    volumes:
+      - ./migrations:/liquibase/changelog
+      - ./scripts:/scripts
+      - ./seed:/seed
+
+    working_dir: /liquibase/changelog
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - prometheus
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      MINIO_PROMETHEUS_AUTH_TYPE: public
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    command: server /data --console-address ":9001"
+    ports:
+      - "${MINIO_PORT}:9000"
+      - "${MINIO_CONSOLE_PORT}:9001"
+    volumes:
+      - minio_data:/data
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: minio-init
+    depends_on:
+      - minio
+    env_file:
+      - .env
+    volumes:
+      - ./minio/policies:/policies:ro
+      - ./minio/init-minio.sh:/init-minio.sh:ro
+    entrypoint: ["/bin/sh", "/init-minio.sh"]
+  
+  backup:
+    build:
+      context: ./backup
+      dockerfile: Dockerfile
+    container_name: backup
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_HOST: haproxy
+      POSTGRES_PORT_INNER: 5000
+    depends_on:
+        - haproxy
+        - minio-init
+    volumes:
+      - backup_metrics_data:/shared
+  
+  backup_exporter:
+    build:
+      context: ./backup-exporter
+      dockerfile: Dockerfile
+    container_name: backup-exporter
+    restart: unless-stopped
+    volumes:
+      - backup_metrics_data:/shared:ro
+    ports:
+      - "${BACKUP_EXPORTER_PORT}:8000"
+    depends_on:
+      - backup
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_HOST: haproxy
+      POSTGRES_PORT_INNER: 5000
+    ports:
+      - "8080:8080"
+    depends_on:
+      - haproxy
+      - liquibase
+
+volumes:
+  prometheus_data:
+  grafana_data:
+  minio_data:
+  backup_metrics_data:
+  etcd_data:
+  postgres1_data:
+  postgres2_data:
+  kafka_data:
+  clickhouse_data:

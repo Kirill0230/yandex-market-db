@@ -1,0 +1,16 @@
+<clickhouse>
+    <mark_cache_size>134217728</mark_cache_size>
+    <uncompressed_cache_size>67108864</uncompressed_cache_size>
+    <max_concurrent_queries>2</max_concurrent_queries>
+    <listen_host>0.0.0.0</listen_host>
+    <timezone>UTC</timezone>
+
+    <profiles>
+        <default>
+            <max_memory_usage>1073741824</max_memory_usage>
+            <max_bytes_before_external_group_by>536870912</max_bytes_before_external_group_by>
+            <max_bytes_before_external_sort>536870912</max_bytes_before_external_sort>
+            <max_threads>1</max_threads>
+        </default>
+    </profiles>
+</clickhouse>

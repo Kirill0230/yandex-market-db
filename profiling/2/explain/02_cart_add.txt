@@ -1,0 +1,14 @@
+                                            QUERY PLAN                                            
+--------------------------------------------------------------------------------------------------
+ Insert on cart_items  (cost=0.00..0.01 rows=0 width=0) (actual time=0.548..0.548 rows=0 loops=1)
+   Buffers: shared hit=33 read=8 dirtied=3
+   ->  Result  (cost=0.00..0.01 rows=1 width=16) (actual time=0.186..0.187 rows=1 loops=1)
+         Buffers: shared hit=7 read=3 dirtied=1
+ Planning:
+   Buffers: shared hit=3
+ Planning Time: 0.031 ms
+ Trigger for constraint fk_cart_items_user: time=0.806 calls=1
+ Trigger for constraint fk_cart_items_product_detail: time=0.246 calls=1
+ Execution Time: 1.633 ms
+(10 rows)
+

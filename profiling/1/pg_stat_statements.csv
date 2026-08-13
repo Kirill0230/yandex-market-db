@@ -1,0 +1,936 @@
+query,mean_exec_time,calls,shared_blks_hit,shared_blks_read
+"SELECT
+    pc.product_category_id,
+    pc.name AS category_name,
+    COUNT(DISTINCT oh.order_header_id)  AS orders_count,
+    SUM(od.quantity * pd.price)         AS revenue,
+    AVG(od.quantity * pd.price)         AS avg_order_line
+FROM order_header        oh
+JOIN order_detail        od ON od.order_header_id     = oh.order_header_id
+JOIN product_detail      pd ON pd.product_detail_id   = od.product_detail_id
+JOIN product             p  ON p.product_id           = pd.product_id
+JOIN product_subcategory ps ON ps.product_subcategory_id = p.product_subcategory_id
+JOIN product_category    pc ON pc.product_category_id = ps.product_category_id
+WHERE oh.order_date BETWEEN $1 AND $2
+GROUP BY pc.product_category_id, pc.name
+ORDER BY revenue DESC",224.60925800000007,208,77360022,3984
+"SELECT
+    s.seller_id,
+    u.login AS seller_login,
+    SUM(od.quantity * pd.price)                                  AS revenue,
+    RANK() OVER (ORDER BY SUM(od.quantity * pd.price) DESC)      AS revenue_rank,
+    SUM(od.quantity * pd.price)
+        / NULLIF(SUM(SUM(od.quantity * pd.price)) OVER (), $3)    AS revenue_share
+FROM order_detail   od
+JOIN order_header   oh ON oh.order_header_id   = od.order_header_id
+JOIN product_detail pd ON pd.product_detail_id = od.product_detail_id
+JOIN seller         s  ON s.seller_id          = pd.seller_id
+JOIN users          u  ON u.user_id            = s.user_id
+WHERE oh.order_date BETWEEN $1 AND $2
+GROUP BY s.seller_id, u.login
+ORDER BY revenue DESC
+LIMIT $4",188.06777396634615,208,77773985,1266
+"SELECT
+    pph.change_date,
+    pph.price,
+    LAG(pph.price) OVER (ORDER BY pph.change_date) AS prev_price
+FROM product_price_history pph
+JOIN product_detail        pd ON pd.product_detail_id = pph.product_detail_id
+WHERE pd.product_id  = $1
+  AND pph.change_date >= NOW() - ($2 || $3)::interval
+ORDER BY pph.change_date",53.439854714723936,652,4209160,95806
+"EXPLAIN (ANALYZE, BUFFERS)
+SELECT
+    p.product_id,
+    p.name,
+    p.description,
+    p.color,
+    p.country_origin,
+    ps.name AS subcategory_name,
+    pc.name AS category_name,
+    pd.product_detail_id,
+    pd.seller_id,
+    pd.price,
+    pd.quantity
+FROM product p
+JOIN product_subcategory ps ON ps.product_subcategory_id = p.product_subcategory_id
+JOIN product_category pc ON pc.product_category_id = ps.product_category_id
+JOIN product_detail pd ON pd.product_id = p.product_id
+WHERE p.product_id = $1",27.035334,1,1213,0
+CREATE EXTENSION IF NOT EXISTS pg_stat_statements,22.612709,1,3325,50
+"EXPLAIN (ANALYZE, BUFFERS)
+SELECT
+    p.product_id,
+    p.name,
+    p.description,
+    p.color,
+    p.country_origin,
+    ps.name AS subcategory_name,
+    pc.name AS category_name,
+    pd.product_detail_id,
+    pd.seller_id,
+    pd.price,
+    pd.quantity
+FROM product p
+JOIN product_subcategory ps ON ps.product_subcategory_id = p.product_subcategory_id
+JOIN product_category pc ON pc.product_category_id = ps.product_category_id
+JOIN product_detail pd ON pd.product_id = p.product_id
+WHERE p.product_id = $1;",22.584084,1,869,0
+"EXPLAIN (ANALYZE, BUFFERS)
+SELECT
+    p.product_id,
+    p.name,
+    p.description,
+    p.color,
+    p.country_origin,
+    ps.name AS subcategory_name,
+    pc.name AS category_name,
+    pd.product_detail_id,
+    pd.seller_id,
+    pd.price,
+    pd.quantity
+FROM product p
+JOIN product_subcategory ps ON ps.product_subcategory_id = p.product_subcategory_id
+JOIN product_category pc ON pc.product_category_id = ps.product_category_id
+JOIN product_detail pd ON pd.product_id = p.product_id
+WHERE p.product_id = $1",19.226459,1,1168,0
+"EXPLAIN (ANALYZE, BUFFERS)
+SELECT
+    p.product_id,
+    p.name,
+    p.description,
+    p.color,
+    p.country_origin,
+    ps.name AS subcategory_name,
+    pc.name AS category_name,
+    pd.product_detail_id,
+    pd.seller_id,
+    pd.price,
+    pd.quantity
+FROM product p
+JOIN product_subcategory ps ON ps.product_subcategory_id = p.product_subcategory_id
+JOIN product_category pc ON pc.product_category_id = ps.product_category_id
+JOIN product_detail pd ON pd.product_id = p.product_id
+WHERE p.product_id = $1;",16.948498999999998,1,869,0
+"SELECT
+    p.product_id,
+    p.name,
+    p.description,
+    p.color,
+    p.country_origin,
+    ps.name AS subcategory_name,
+    pc.name AS category_name,
+    pd.product_detail_id,
+    pd.seller_id,
+    pd.price,
+    pd.quantity
+FROM product p
+JOIN product_subcategory ps ON ps.product_subcategory_id = p.product_subcategory_id
+JOIN product_category    pc ON pc.product_category_id    = ps.product_category_id
+JOIN product_detail      pd ON pd.product_id             = p.product_id
+WHERE p.product_id = $1",9.215201889777754,1125,976746,879
+Select COUNT(product_id) FROM product,4.167,1,0,166
+"COPY  ( SELECT query, mean_exec_time, calls, shared_blks_hit, shared_blks_read FROM pg_stat_statements ORDER BY mean_exec_time DESC ) TO STDOUT WITH CSV HEADER",2.9815,1,174,0
+"SELECT name, setting, COALESCE(unit, $1), short_desc, vartype FROM pg_settings WHERE vartype IN ($2, $3, $4) AND name NOT IN ($5, $6)",2.3575692145328704,289,8,0
+"SELECT
+		current_database() datname,
+		schemaname,
+		relname,
+		seq_scan,
+		seq_tup_read,
+		idx_scan,
+		idx_tup_fetch,
+		n_tup_ins,
+		n_tup_upd,
+		n_tup_del,
+		n_tup_hot_upd,
+		n_live_tup,
+		n_dead_tup,
+		n_mod_since_analyze,
+		COALESCE(last_vacuum, $1) as last_vacuum,
+		COALESCE(last_autovacuum, $2) as last_autovacuum,
+		COALESCE(last_analyze, $3) as last_analyze,
+		COALESCE(last_autoanalyze, $4) as last_autoanalyze,
+		vacuum_count,
+		autovacuum_count,
+		analyze_count,
+		autoanalyze_count,
+		pg_indexes_size(relid) as indexes_size,
+		pg_table_size(relid) as table_size
+	FROM
+		pg_stat_user_tables",2.2392078689655173,290,217482,18
+"SELECT
+    db.oid as did, db.datname as name, ta.spcname as spcname, db.datallowconn,
+    db.datistemplate AS is_template,
+    pg_catalog.has_database_privilege(db.oid, $1) as cancreate, datdba as owner,
+    descr.description
+FROM
+    pg_catalog.pg_database db
+    LEFT OUTER JOIN pg_catalog.pg_tablespace ta ON db.dattablespace = ta.oid
+    LEFT OUTER JOIN pg_catalog.pg_shdescription descr ON (
+        db.oid=descr.objoid AND descr.classoid=$2::regclass
+    )
+WHERE         db.oid > $3::OID OR db.datname IN ($4, $5)
+
+ORDER BY datname",2.0415,1,9,1
+"SELECT name, vartype, min_val, max_val, enumvals
+FROM pg_catalog.pg_show_all_settings() WHERE context in ($1, $2)",1.923375,1,0,0
+"-- Register a view on the function for ease of use.
+CREATE VIEW pg_stat_statements AS
+  SELECT * FROM pg_stat_statements(true)",1.5835916,5,1312,26
+"SELECT set_config($1,$2,$3) FROM pg_show_all_settings() WHERE name = $4",1.51215675,4,36,0
+"SELECT set_config($1,$2,$3) FROM pg_show_all_settings() WHERE name = $4",1.2891559999999997,4,0,0
+"SELECT
+		current_database() datname,
+		schemaname,
+		relname,
+		heap_blks_read,
+		heap_blks_hit,
+		idx_blks_read,
+		idx_blks_hit,
+		toast_blks_read,
+		toast_blks_hit,
+		tidx_blks_read,
+		tidx_blks_hit
+	FROM pg_statio_user_tables",1.0249277172413793,290,66410,0
+"/* contrib/pg_stat_statements/pg_stat_statements--1.4.sql */
+
+-- complain if script is sourced in psql, rather than via CREATE EXTENSION
+
+
+-- Register functions.
+CREATE FUNCTION pg_stat_statements_reset()
+RETURNS void
+AS '$libdir/pg_stat_statements'
+LANGUAGE C PARALLEL SAFE",0.929167,1,36,12
+SELECT pg_database_size($1),0.8933950268965525,1450,5220,0
+"COPY  ( SELECT query, mean_exec_time, calls, shared_blks_hit, shared_blks_read FROM pg_stat_statements ORDER BY mean_exec_time DESC ) TO STDOUT WITH CSV HEADER",0.8566239999999999,1,3,0
+"/* contrib/pg_stat_statements/pg_stat_statements--1.6--1.7.sql */
+
+-- complain if script is sourced in psql, rather than via ALTER EXTENSION
+
+
+/* First we have to remove them from the extension */
+ALTER EXTENSION pg_stat_statements DROP FUNCTION pg_stat_statements_reset()",0.48075,1,20,0
+SELECT colllocale as colliculocale from pg_collation where collprovider = $1,0.3819165,2,16,16
+"CREATE FUNCTION pg_stat_statements(IN showtext boolean,
+    OUT userid oid,
+    OUT dbid oid,
+    OUT queryid bigint,
+    OUT query text,
+    OUT calls int8,
+    OUT total_time float8,
+    OUT min_time float8,
+    OUT max_time float8,
+    OUT mean_time float8,
+    OUT stddev_time float8,
+    OUT rows int8,
+    OUT shared_blks_hit int8,
+    OUT shared_blks_read int8,
+    OUT shared_blks_dirtied int8,
+    OUT shared_blks_written int8,
+    OUT local_blks_hit int8,
+    OUT local_blks_read int8,
+    OUT local_blks_dirtied int8,
+    OUT local_blks_written int8,
+    OUT temp_blks_read int8,
+    OUT temp_blks_written int8,
+    OUT blk_read_time float8,
+    OUT blk_write_time float8
+)
+RETURNS SETOF record
+AS '$libdir/pg_stat_statements', 'pg_stat_statements_1_3'
+LANGUAGE C STRICT VOLATILE PARALLEL SAFE",0.379083,1,58,0
+"SELECT 
+		  pg_database.datname as datname,
+		  tmp.mode as mode,
+		  COALESCE(count, $1) as count 
+		FROM 
+		  (
+		    VALUES 
+		      ($2), 
+		      ($3), 
+		      ($4), 
+		      ($5), 
+		      ($6), 
+		      ($7), 
+		      ($8), 
+		      ($9), 
+		      ($10)
+		  ) AS tmp(mode)
+		  CROSS JOIN pg_database 
+		  LEFT JOIN (
+		    SELECT 
+		      database, 
+		      lower(mode) AS mode, 
+		      count(*) AS count 
+		    FROM 
+		      pg_locks 
+		    WHERE 
+		      database IS NOT NULL 
+		    GROUP BY 
+		      database, 
+		      lower(mode)
+		  ) AS tmp2 ON tmp.mode = tmp2.mode 
+		  and pg_database.oid = tmp2.database 
+		ORDER BY 
+		  1",0.34752401724137955,290,1160,0
+"/* Then we can drop them */
+DROP VIEW pg_stat_statements",0.3440835,4,529,1
+"/* Now redefine */
+CREATE FUNCTION pg_stat_statements(IN showtext boolean,
+    OUT userid oid,
+    OUT dbid oid,
+    OUT queryid bigint,
+    OUT query text,
+    OUT plans int8,
+    OUT total_plan_time float8,
+    OUT min_plan_time float8,
+    OUT max_plan_time float8,
+    OUT mean_plan_time float8,
+    OUT stddev_plan_time float8,
+    OUT calls int8,
+    OUT total_exec_time float8,
+    OUT min_exec_time float8,
+    OUT max_exec_time float8,
+    OUT mean_exec_time float8,
+    OUT stddev_exec_time float8,
+    OUT rows int8,
+    OUT shared_blks_hit int8,
+    OUT shared_blks_read int8,
+    OUT shared_blks_dirtied int8,
+    OUT shared_blks_written int8,
+    OUT local_blks_hit int8,
+    OUT local_blks_read int8,
+    OUT local_blks_dirtied int8,
+    OUT local_blks_written int8,
+    OUT temp_blks_read int8,
+    OUT temp_blks_written int8,
+    OUT blk_read_time float8,
+    OUT blk_write_time float8,
+    OUT wal_records int8,
+    OUT wal_fpi int8,
+    OUT wal_bytes numeric
+)
+RETURNS SETOF record
+AS '$libdir/pg_stat_statements', 'pg_stat_statements_1_8'
+LANGUAGE C STRICT VOLATILE PARALLEL SAFE",0.30025,1,32,2
+"SELECT
+    $1 AS deftype, COALESCE(gt.rolname, $2) AS grantee,
+    g.rolname AS grantor, pg_catalog.array_agg(privilege_type) AS privileges,
+    pg_catalog.array_agg(is_grantable) AS grantable
+FROM
+    (SELECT
+        d.grantee, d.grantor, d.is_grantable,
+        CASE d.privilege_type
+        WHEN $3 THEN $4
+        WHEN $5 THEN $6
+        WHEN $7 THEN $8
+        WHEN $9 THEN $10
+        WHEN $11 THEN $12
+        WHEN $13 THEN $14
+        WHEN $15 THEN $16
+        WHEN $17 THEN $18
+        WHEN $19 THEN $20
+        WHEN $21 THEN $22
+        WHEN $23 THEN $24
+        WHEN $25 THEN $26
+        WHEN $27 THEN $28
+        ELSE $29
+        END AS privilege_type
+    FROM
+        (SELECT
+            (d).grantee AS grantee, (d).grantor AS grantor,
+            (d).is_grantable AS is_grantable,
+            (d).privilege_type AS privilege_type
+        FROM
+            (SELECT pg_catalog.aclexplode(db.datacl) AS d FROM pg_catalog.pg_database db
+            WHERE db.oid = $30::OID) a
+        ) d
+    ) d
+    LEFT JOIN pg_catalog.pg_roles g ON (d.grantor = g.oid)
+    LEFT JOIN pg_catalog.pg_roles gt ON (d.grantee = gt.oid)
+GROUP BY g.rolname, gt.rolname
+ORDER BY grantee",0.27641699999999997,1,3,0
+"SELECT
+			COUNT(*) AS segments,
+			SUM(size) AS size
+		FROM pg_ls_waldir()
+		WHERE name ~ $1",0.24970938620689634,290,0,0
+"SELECT
+    db.oid AS did, db.oid, db.datname AS name, db.dattablespace AS spcoid,
+    spcname, datallowconn, pg_catalog.pg_encoding_to_char(encoding) AS encoding,
+    pg_catalog.pg_get_userbyid(datdba) AS datowner, db.datcollate, db.datctype,
+    datconnlimit, datlocale AS daticulocale, datlocale AS datbuiltinlocale, daticurules, datcollversion,
+    CASE WHEN datlocprovider = $1 THEN $2 WHEN datlocprovider = $3 THEN $4
+    ELSE $5 END datlocaleprovider,
+    pg_catalog.has_database_privilege(db.oid, $6) AS cancreate,
+    pg_catalog.current_setting($7) AS default_tablespace,
+    descr.description AS comments, db.datistemplate AS is_template,
+        $8 AS tblacl,
+        $9 AS seqacl,
+        $10 AS funcacl,
+    pg_catalog.array_to_string(datacl::text[], $11) AS acl
+FROM pg_catalog.pg_database db
+    LEFT OUTER JOIN pg_catalog.pg_tablespace ta ON db.dattablespace=ta.OID
+    LEFT OUTER JOIN pg_catalog.pg_shdescription descr ON (
+        db.oid=descr.objoid AND descr.classoid=$12::regclass
+    )
+WHERE
+    
+    db.oid > $13::OID OR db.datname IN ($14, $15)
+
+ORDER BY datname",0.24779199999999998,1,5,0
+"SELECT
+				pg_database.datname,
+				tmp.state,
+				tmp2.usename,
+				tmp2.application_name,
+				tmp2.backend_type,
+				tmp2.wait_event_type,
+				tmp2.wait_event,
+				COALESCE(count,$1) as count,
+				COALESCE(max_tx_duration,$2) as max_tx_duration
+			FROM
+				(
+				  VALUES ($3),
+				  		 ($4),
+				  		 ($5),
+				  		 ($6),
+				  		 ($7),
+				  		 ($8)
+				) AS tmp(state) CROSS JOIN pg_database
+			LEFT JOIN
+			(
+				SELECT
+					datname,
+					state,
+					usename,
+					application_name,
+					backend_type,
+					wait_event_type,
+					wait_event,
+					count(*) AS count,
+					MAX(EXTRACT($9 FROM now() - xact_start))::float AS max_tx_duration
+				FROM pg_stat_activity
+				WHERE pid <> pg_backend_pid()
+				GROUP BY datname,state,usename,application_name,backend_type,wait_event_type,wait_event) AS tmp2
+				ON tmp.state = tmp2.state AND pg_database.datname = tmp2.datname",0.24174941522491364,289,867,0
+"INSERT INTO cart_items (user_id, product_detail_id, quantity)
+VALUES ($1, $2, $3)
+RETURNING cart_item_id",0.24090181850533807,1124,18755,10
+"SELECT
+    ts.oid AS oid, spcname AS name, spcowner as owner,
+    pg_catalog.shobj_description(oid, $1) AS description
+FROM
+    pg_catalog.pg_tablespace ts
+ORDER BY name",0.238709,1,8,0
+"/* contrib/pg_stat_statements/pg_stat_statements--1.5--1.6.sql */
+
+-- complain if script is sourced in psql, rather than via ALTER EXTENSION
+
+
+-- Execution is only allowed for superusers, fixing issue with 1.5.
+REVOKE EXECUTE ON FUNCTION pg_stat_statements_reset() FROM pg_read_all_stats",0.221,1,12,0
+"CREATE FUNCTION pg_stat_statements_reset(IN userid Oid DEFAULT 0,
+	IN dbid Oid DEFAULT 0,
+	IN queryid bigint DEFAULT 0,
+	IN minmax_only boolean DEFAULT false
+)
+RETURNS timestamp with time zone
+AS '$libdir/pg_stat_statements', 'pg_stat_statements_reset_1_11'
+LANGUAGE C STRICT PARALLEL SAFE",0.213916,1,31,0
+"/* Then we can drop them */
+DROP FUNCTION pg_stat_statements_reset()",0.19825,1,68,1
+"/* contrib/pg_stat_statements/pg_stat_statements--1.7--1.8.sql */
+
+-- complain if script is sourced in psql, rather than via ALTER EXTENSION
+
+
+/* First we have to remove them from the extension */
+ALTER EXTENSION pg_stat_statements DROP VIEW pg_stat_statements",0.18251366666666666,3,478,0
+"CREATE VIEW pg_stat_statements_info AS
+  SELECT * FROM pg_stat_statements_info()",0.178958,1,103,0
+"INSERT INTO product_price_history (product_detail_id, price, change_date)
+VALUES ($1, $2, NOW())",0.1715883542944786,652,6471,13
+GRANT SELECT ON pg_stat_statements TO PUBLIC,0.17155,5,125,7
+"SELECT
+            roles.oid as id, roles.rolname as name,
+            roles.rolsuper as is_superuser,
+            CASE WHEN roles.rolsuper THEN $1 ELSE roles.rolcreaterole END as
+            can_create_role,
+            CASE WHEN roles.rolsuper THEN $2
+            ELSE roles.rolcreatedb END as can_create_db,
+            CASE WHEN $3=ANY(ARRAY(WITH RECURSIVE cte AS (
+            SELECT pg_roles.oid,pg_roles.rolname FROM pg_roles
+                WHERE pg_roles.oid = roles.oid
+            UNION ALL
+            SELECT m.roleid,pgr.rolname FROM cte cte_1
+                JOIN pg_auth_members m ON m.member = cte_1.oid
+                JOIN pg_roles pgr ON pgr.oid = m.roleid)
+            SELECT rolname  FROM cte)) THEN $4
+            ELSE $5 END as can_signal_backend
+        FROM
+            pg_catalog.pg_roles as roles
+        WHERE
+            rolname = current_user",0.16189625000000002,4,24,0
+"/* Now redefine */
+CREATE FUNCTION pg_stat_statements_reset(IN userid Oid DEFAULT 0,
+	IN dbid Oid DEFAULT 0,
+	IN queryid bigint DEFAULT 0
+)
+RETURNS void
+AS '$libdir/pg_stat_statements', 'pg_stat_statements_reset_1_7'
+LANGUAGE C STRICT PARALLEL SAFE",0.159666,1,31,1
+"SELECT
+             gss_authenticated, encrypted
+        FROM
+            pg_catalog.pg_stat_gssapi
+        WHERE pid = pg_backend_pid()",0.1496565,4,0,0
+"SELECT
+             gss_authenticated, encrypted
+        FROM
+            pg_catalog.pg_stat_gssapi
+        WHERE pid = pg_backend_pid()",0.1492605,4,0,0
+"/* contrib/pg_stat_statements/pg_stat_statements--1.4--1.5.sql */
+
+-- complain if script is sourced in psql, rather than via ALTER EXTENSION
+
+
+GRANT EXECUTE ON FUNCTION pg_stat_statements_reset() TO pg_read_all_stats",0.130292,1,14,0
+"-- Don't want this to be available to non-superusers.
+REVOKE ALL ON FUNCTION pg_stat_statements_reset() FROM PUBLIC",0.12075,1,17,0
+"SELECT *,
+				(case pg_is_in_recovery() when $1 then pg_last_wal_receive_lsn() else pg_current_wal_lsn() end) AS pg_current_wal_lsn,
+				(case pg_is_in_recovery() when $2 then pg_wal_lsn_diff(pg_last_wal_receive_lsn(), pg_lsn($3))::float else pg_wal_lsn_diff(pg_current_wal_lsn(), pg_lsn($4))::float end) AS pg_current_wal_lsn_bytes,
+				(case pg_is_in_recovery() when $5 then pg_wal_lsn_diff(pg_last_wal_receive_lsn(), replay_lsn)::float else pg_wal_lsn_diff(pg_current_wal_lsn(), replay_lsn)::float end) AS pg_wal_lsn_diff
+			FROM pg_stat_replication",0.11387508650519029,289,0,0
+"/* Now redefine */
+CREATE FUNCTION pg_stat_statements(IN showtext boolean,
+    OUT userid oid,
+    OUT dbid oid,
+    OUT toplevel bool,
+    OUT queryid bigint,
+    OUT query text,
+    OUT plans int8,
+    OUT total_plan_time float8,
+    OUT min_plan_time float8,
+    OUT max_plan_time float8,
+    OUT mean_plan_time float8,
+    OUT stddev_plan_time float8,
+    OUT calls int8,
+    OUT total_exec_time float8,
+    OUT min_exec_time float8,
+    OUT max_exec_time float8,
+    OUT mean_exec_time float8,
+    OUT stddev_exec_time float8,
+    OUT rows int8,
+    OUT shared_blks_hit int8,
+    OUT shared_blks_read int8,
+    OUT shared_blks_dirtied int8,
+    OUT shared_blks_written int8,
+    OUT local_blks_hit int8,
+    OUT local_blks_read int8,
+    OUT local_blks_dirtied int8,
+    OUT local_blks_written int8,
+    OUT temp_blks_read int8,
+    OUT temp_blks_written int8,
+    OUT blk_read_time float8,
+    OUT blk_write_time float8,
+    OUT temp_blk_read_time float8,
+    OUT temp_blk_write_time float8,
+    OUT wal_records int8,
+    OUT wal_fpi int8,
+    OUT wal_bytes numeric,
+    OUT jit_functions int8,
+    OUT jit_generation_time float8,
+    OUT jit_inlining_count int8,
+    OUT jit_inlining_time float8,
+    OUT jit_optimization_count int8,
+    OUT jit_optimization_time float8,
+    OUT jit_emission_count int8,
+    OUT jit_emission_time float8
+)
+RETURNS SETOF record
+AS '$libdir/pg_stat_statements', 'pg_stat_statements_1_10'
+LANGUAGE C STRICT VOLATILE PARALLEL SAFE",0.111459,1,28,0
+"SELECT
+            roles.oid as id, roles.rolname as name,
+            roles.rolsuper as is_superuser,
+            CASE WHEN roles.rolsuper THEN $1 ELSE roles.rolcreaterole END as
+            can_create_role,
+            CASE WHEN roles.rolsuper THEN $2
+            ELSE roles.rolcreatedb END as can_create_db,
+            CASE WHEN $3=ANY(ARRAY(WITH RECURSIVE cte AS (
+            SELECT pg_roles.oid,pg_roles.rolname FROM pg_roles
+                WHERE pg_roles.oid = roles.oid
+            UNION ALL
+            SELECT m.roleid,pgr.rolname FROM cte cte_1
+                JOIN pg_auth_members m ON m.member = cte_1.oid
+                JOIN pg_roles pgr ON pgr.oid = m.roleid)
+            SELECT rolname  FROM cte)) THEN $4
+            ELSE $5 END as can_signal_backend
+        FROM
+            pg_catalog.pg_roles as roles
+        WHERE
+            rolname = current_user",0.1105,4,16,0
+"SELECT
+    db.oid as did, db.datname as name, ta.spcname as spcname, db.datallowconn,
+    db.datistemplate AS is_template,
+    pg_catalog.has_database_privilege(db.oid, $1) as cancreate, datdba as owner,
+    descr.description
+FROM
+    pg_catalog.pg_database db
+    LEFT OUTER JOIN pg_catalog.pg_tablespace ta ON db.dattablespace = ta.oid
+    LEFT OUTER JOIN pg_catalog.pg_shdescription descr ON (
+        db.oid=descr.objoid AND descr.classoid=$2::regclass
+    )
+WHERE         db.oid > $3::OID OR db.datname IN ($4, $5)
+
+ORDER BY datname",0.108,1,6,0
+"/* Now redefine */
+CREATE FUNCTION pg_stat_statements(IN showtext boolean,
+    OUT userid oid,
+    OUT dbid oid,
+    OUT toplevel bool,
+    OUT queryid bigint,
+    OUT query text,
+    OUT plans int8,
+    OUT total_plan_time float8,
+    OUT min_plan_time float8,
+    OUT max_plan_time float8,
+    OUT mean_plan_time float8,
+    OUT stddev_plan_time float8,
+    OUT calls int8,
+    OUT total_exec_time float8,
+    OUT min_exec_time float8,
+    OUT max_exec_time float8,
+    OUT mean_exec_time float8,
+    OUT stddev_exec_time float8,
+    OUT rows int8,
+    OUT shared_blks_hit int8,
+    OUT shared_blks_read int8,
+    OUT shared_blks_dirtied int8,
+    OUT shared_blks_written int8,
+    OUT local_blks_hit int8,
+    OUT local_blks_read int8,
+    OUT local_blks_dirtied int8,
+    OUT local_blks_written int8,
+    OUT temp_blks_read int8,
+    OUT temp_blks_written int8,
+    OUT shared_blk_read_time float8,
+    OUT shared_blk_write_time float8,
+    OUT local_blk_read_time float8,
+    OUT local_blk_write_time float8,
+    OUT temp_blk_read_time float8,
+    OUT temp_blk_write_time float8,
+    OUT wal_records int8,
+    OUT wal_fpi int8,
+    OUT wal_bytes numeric,
+    OUT jit_functions int8,
+    OUT jit_generation_time float8,
+    OUT jit_inlining_count int8,
+    OUT jit_inlining_time float8,
+    OUT jit_optimization_count int8,
+    OUT jit_optimization_time float8,
+    OUT jit_emission_count int8,
+    OUT jit_emission_time float8,
+    OUT jit_deform_count int8,
+    OUT jit_deform_time float8,
+    OUT stats_since timestamp with time zone,
+    OUT minmax_stats_since timestamp with time zone
+)
+RETURNS SETOF record
+AS '$libdir/pg_stat_statements', 'pg_stat_statements_1_11'
+LANGUAGE C STRICT VOLATILE PARALLEL SAFE",0.095083,1,28,0
+"/* contrib/pg_stat_statements/pg_stat_statements--1.8--1.9.sql */
+
+-- complain if script is sourced in psql, rather than via ALTER EXTENSION
+
+
+--- Define pg_stat_statements_info
+CREATE FUNCTION pg_stat_statements_info(
+    OUT dealloc bigint,
+    OUT stats_reset timestamp with time zone
+)
+RETURNS record
+AS '$libdir/pg_stat_statements'
+LANGUAGE C STRICT VOLATILE PARALLEL SAFE",0.093333,1,27,0
+"SELECT pg_catalog.pg_postmaster_start_time(), CASE WHEN pg_catalog.pg_is_in_recovery() THEN $1 ELSE ($2 || pg_catalog.substr(pg_catalog.pg_walfile_name(pg_catalog.pg_current_wal_lsn()), $3, $4))::bit(32)::int END, CASE WHEN pg_catalog.pg_is_in_recovery() THEN $5 ELSE pg_catalog.pg_wal_lsn_diff(pg_catalog.pg_current_wal_flush_lsn(), $6)::bigint END, pg_catalog.pg_wal_lsn_diff(pg_catalog.pg_last_wal_replay_lsn(), $7)::bigint, pg_catalog.pg_wal_lsn_diff(COALESCE(pg_catalog.pg_last_wal_receive_lsn(), $8), $9)::bigint, pg_catalog.pg_is_in_recovery() AND pg_catalog.pg_is_wal_replay_paused(), pg_catalog.pg_last_xact_replay_timestamp(), pg_catalog.pg_wal_lsn_diff(wr.latest_end_lsn, $10)::bigint, wr.status, pg_catalog.current_setting($11), pg_catalog.pg_wal_lsn_diff(wr.written_lsn, $12)::bigint, (SELECT pg_catalog.array_to_json(pg_catalog.array_agg(pg_catalog.row_to_json(ri))) FROM (SELECT (SELECT rolname FROM pg_catalog.pg_authid WHERE oid = usesysid) AS usename, application_name, client_addr, w.state, sync_state, sync_priority FROM pg_catalog.pg_stat_get_wal_senders() w, pg_catalog.pg_stat_get_activity(pid)) AS ri) FROM pg_catalog.pg_stat_get_wal_receiver() AS wr",0.08777614120370388,2160,0,0
+"SELECT CASE WHEN pg_catalog.pg_is_in_recovery() THEN $1 ELSE ($2 || pg_catalog.substr(pg_catalog.pg_walfile_name(pg_catalog.pg_current_wal_lsn()), $3, $4))::bit(32)::int END, CASE WHEN pg_catalog.pg_is_in_recovery() THEN $5 ELSE pg_catalog.pg_wal_lsn_diff(pg_catalog.pg_current_wal_flush_lsn(), $6)::bigint END, pg_catalog.pg_wal_lsn_diff(pg_catalog.pg_last_wal_replay_lsn(), $7)::bigint, pg_catalog.pg_wal_lsn_diff(COALESCE(pg_catalog.pg_last_wal_receive_lsn(), $8), $9)::bigint, pg_catalog.pg_is_in_recovery() AND pg_catalog.pg_is_wal_replay_paused(), $10, CASE WHEN latest_end_lsn IS NULL THEN $11 ELSE received_tli END, pg_catalog.pg_wal_lsn_diff(written_lsn, $12)::bigint, slot_name, conninfo, status, pg_catalog.current_setting($13), (SELECT pg_catalog.json_agg(s.*) FROM (SELECT slot_name, slot_type as type, datoid::bigint, plugin, catalog_xmin, pg_catalog.pg_wal_lsn_diff(confirmed_flush_lsn, $14)::bigint AS confirmed_flush_lsn, pg_catalog.pg_wal_lsn_diff(restart_lsn, $15)::bigint AS restart_lsn, xmin FROM pg_catalog.pg_get_replication_slots() WHERE NOT failover) AS s), $16, $17, $18 FROM pg_catalog.pg_stat_get_wal_receiver()",0.08362435067873307,442,0,0
+"SELECT
+    r.oid, r.rolname, r.rolcanlogin, r.rolsuper, d.description
+FROM pg_catalog.pg_roles r
+    LEFT JOIN pg_catalog.pg_shdescription d
+    ON d.objoid = r.oid AND d.classoid = $1::regclass
+ORDER BY r.rolcanlogin, r.rolname",0.08033399999999999,1,7,0
+"DROP FUNCTION pg_stat_statements_reset(Oid, Oid, bigint)",0.072917,1,29,0
+"SELECT
+    db.oid AS did, db.oid, db.datname AS name, db.dattablespace AS spcoid,
+    spcname, datallowconn, pg_catalog.pg_encoding_to_char(encoding) AS encoding,
+    pg_catalog.pg_get_userbyid(datdba) AS datowner, db.datcollate, db.datctype,
+    datconnlimit, datlocale AS daticulocale, datlocale AS datbuiltinlocale, daticurules, datcollversion,
+    CASE WHEN datlocprovider = $1 THEN $2 WHEN datlocprovider = $3 THEN $4
+    ELSE $5 END datlocaleprovider,
+    pg_catalog.has_database_privilege(db.oid, $6) AS cancreate,
+    pg_catalog.current_setting($7) AS default_tablespace,
+    descr.description AS comments, db.datistemplate AS is_template,
+        $8 AS tblacl,
+        $9 AS seqacl,
+        $10 AS funcacl,
+    pg_catalog.array_to_string(datacl::text[], $11) AS acl
+FROM pg_catalog.pg_database db
+    LEFT OUTER JOIN pg_catalog.pg_tablespace ta ON db.dattablespace=ta.OID
+    LEFT OUTER JOIN pg_catalog.pg_shdescription descr ON (
+        db.oid=descr.objoid AND descr.classoid=$12::regclass
+    )
+WHERE
+    db.oid = $13::OID
+
+
+ORDER BY datname",0.07275000000000001,1,3,0
+"SELECT datid,datname,numbackends,xact_commit,xact_rollback,blks_read,blks_hit,tup_returned,tup_fetched,tup_inserted,tup_updated,tup_deleted,conflicts,temp_files,temp_bytes,deadlocks,blk_read_time,blk_write_time,stats_reset,active_time FROM pg_stat_database",0.07044141724137926,290,290,0
+"SELECT * FROM
+(SELECT pg_catalog.pg_encoding_to_char(s.i) AS encoding
+FROM (SELECT pg_catalog.generate_series($1, $2, $3) as i) s) a
+WHERE encoding != $4 ORDER BY encoding",0.069542,1,0,0
+"/* Now redefine */
+CREATE FUNCTION pg_stat_statements(IN showtext boolean,
+    OUT userid oid,
+    OUT dbid oid,
+    OUT toplevel bool,
+    OUT queryid bigint,
+    OUT query text,
+    OUT plans int8,
+    OUT total_plan_time float8,
+    OUT min_plan_time float8,
+    OUT max_plan_time float8,
+    OUT mean_plan_time float8,
+    OUT stddev_plan_time float8,
+    OUT calls int8,
+    OUT total_exec_time float8,
+    OUT min_exec_time float8,
+    OUT max_exec_time float8,
+    OUT mean_exec_time float8,
+    OUT stddev_exec_time float8,
+    OUT rows int8,
+    OUT shared_blks_hit int8,
+    OUT shared_blks_read int8,
+    OUT shared_blks_dirtied int8,
+    OUT shared_blks_written int8,
+    OUT local_blks_hit int8,
+    OUT local_blks_read int8,
+    OUT local_blks_dirtied int8,
+    OUT local_blks_written int8,
+    OUT temp_blks_read int8,
+    OUT temp_blks_written int8,
+    OUT blk_read_time float8,
+    OUT blk_write_time float8,
+    OUT wal_records int8,
+    OUT wal_fpi int8,
+    OUT wal_bytes numeric
+)
+RETURNS SETOF record
+AS '$libdir/pg_stat_statements', 'pg_stat_statements_1_9'
+LANGUAGE C STRICT VOLATILE PARALLEL SAFE",0.065667,1,26,0
+"(SELECT
+    CASE (a.deftype)
+    WHEN $1 THEN $2
+    WHEN $3 THEN $4
+    WHEN $5 THEN $6
+    WHEN $7 THEN $8
+    END AS deftype,
+	$9 as acltype,
+    COALESCE(gt.rolname, $10) AS grantee, g.rolname AS grantor, pg_catalog.array_agg(a.privilege_type) as privileges, pg_catalog.array_agg(a.is_grantable) as grantable
+FROM
+    (SELECT
+        (acl).grantee as grantee, (acl).grantor AS grantor, (acl).is_grantable AS is_grantable,
+        CASE (acl).privilege_type
+        WHEN $11 THEN $12
+        WHEN $13 THEN $14
+        WHEN $15 THEN $16
+        WHEN $17 THEN $18
+        WHEN $19 THEN $20
+        WHEN $21 THEN $22
+        WHEN $23 THEN $24
+        WHEN $25 THEN $26
+        WHEN $27 THEN $28
+        WHEN $29 THEN $30
+        WHEN $31 THEN $32
+        WHEN $33 THEN $34
+        WHEN $35 THEN $36
+        ELSE $37
+        END AS privilege_type,
+        defaclobjtype as deftype
+    FROM
+        (SELECT defaclobjtype, pg_catalog.aclexplode(defaclacl) as acl FROM pg_catalog.pg_default_acl dacl
+      WHERE dacl.defaclnamespace = $38::OID) d) a
+    LEFT JOIN pg_catalog.pg_roles g ON (a.grantor = g.oid)
+    LEFT JOIN pg_catalog.pg_roles gt ON (a.grantee = gt.oid)
+GROUP BY g.rolname, gt.rolname, a.deftype
+ORDER BY a.deftype
+	)",0.064834,1,5,0
+"SELECT CASE
+    WHEN (SELECT count(extname) FROM pg_catalog.pg_extension WHERE extname=$1) > $2
+    THEN $3
+    WHEN (SELECT COUNT(*) FROM pg_replication_slots) > $4
+    THEN $5
+    ELSE $6
+END as type",0.05908324999999999,4,3,1
+"SELECT CASE WHEN datlocprovider = $1 THEN
+	(SELECT datlocale as cname FROM pg_database WHERE datname = current_database())
+ELSE
+    (SELECT datcollate as cname FROM pg_database WHERE datname = current_database()
+    UNION
+    SELECT datctype as cname FROM pg_database WHERE datname = current_database())
+END
+FROM pg_database WHERE datname = current_database()",0.0578125,2,9,0
+"SELECT
+    rl.*, r.rolname AS user_name, db.datname as db_name
+FROM pg_catalog.pg_db_role_setting AS rl
+    LEFT JOIN pg_catalog.pg_roles AS r ON rl.setrole = r.oid
+    LEFT JOIN pg_catalog.pg_database AS db ON rl.setdatabase = db.oid
+WHERE setdatabase = $1",0.055833,1,0,0
+"SELECT COUNT(*) FROM pg_extension WHERE extname IN (
+                $1, $2)",0.055749,1,1,0
+"-- Don't want this to be available to non-superusers.
+REVOKE ALL ON FUNCTION pg_stat_statements_reset(Oid, Oid, bigint) FROM PUBLIC",0.055208,1,18,0
+"SELECT
+    has_table_privilege(
+      $1, $2
+    ) has_priviledge
+WHERE EXISTS(
+    SELECT has_schema_privilege($3, $4)
+    WHERE EXISTS(
+        SELECT cl.oid FROM pg_catalog.pg_class cl
+        LEFT JOIN pg_catalog.pg_namespace ns ON ns.oid=relnamespace
+        WHERE relname=$5 AND nspname=$6
+    )
+)",0.055084,1,1,1
+SELECT * FROM pg_stat_database_conflicts,0.05181708304498269,289,289,0
+"SELECT CASE
+    WHEN (SELECT count(extname) FROM pg_catalog.pg_extension WHERE extname=$1) > $2
+    THEN $3
+    WHEN (SELECT COUNT(*) FROM pg_replication_slots) > $4
+    THEN $5
+    ELSE $6
+END as type",0.050177,4,4,0
+"SELECT oid, pg_catalog.format_type(oid, $2) AS typname FROM pg_catalog.pg_type WHERE oid = ANY($1) ORDER BY oid",0.046375,1,2,1
+"SELECT
+		d.datname,
+		s.relid::regclass::text AS relname,
+		s.param1 AS phase,
+		s.param2 AS heap_blks_total,
+		s.param3 AS heap_blks_scanned,
+		s.param4 AS heap_blks_vacuumed,
+		s.param5 AS index_vacuum_count,
+		s.param6 AS max_dead_tuples,
+		s.param7 AS num_dead_tuples
+	FROM
+		pg_stat_get_progress_info($1::text)
+		s(pid, datid, relid, param1, param2, param3, param4, param5, param6, param7, param8, param9, param10, param11, param12, param13, param14, param15, param16, param17, param18, param19, param20)
+	LEFT JOIN
+		pg_database d ON s.datid = d.oid",0.04617402068965517,290,0,0
+"SELECT
+    db.oid as did, db.datname, db.datallowconn,
+    pg_encoding_to_char(db.encoding) AS serverencoding,
+    has_database_privilege(db.oid, $1) as cancreate,
+    datistemplate
+FROM
+    pg_catalog.pg_database db
+WHERE db.datname = current_database()",0.038125,4,4,0
+"SELECT $2 FROM ONLY ""public"".""users"" x WHERE ""user_id"" OPERATOR(pg_catalog.=) $1 FOR KEY SHARE OF x",0.03789900355871885,1124,5620,0
+GRANT SELECT ON pg_stat_statements_info TO PUBLIC,0.03775,1,20,0
+"-- Don't want this to be available to non-superusers.
+REVOKE ALL ON FUNCTION pg_stat_statements_reset(Oid, Oid, bigint, boolean) FROM PUBLIC",0.034416,1,11,0
+"SELECT
+    db.oid as did, db.datname, db.datallowconn,
+    pg_encoding_to_char(db.encoding) AS serverencoding,
+    has_database_privilege(db.oid, $1) as cancreate,
+    datistemplate
+FROM
+    pg_catalog.pg_database db
+WHERE db.datname = current_database()",0.034114,4,4,0
+"SELECT oid, pg_catalog.format_type(oid, $2) AS typname FROM pg_catalog.pg_type WHERE oid = ANY($1) ORDER BY oid",0.031582,1,3,0
+ALTER EXTENSION pg_stat_statements DROP FUNCTION pg_stat_statements(boolean),0.028624666666666663,3,37,0
+SET DateStyle=ISO,0.02715625,4,0,0
+DROP FUNCTION pg_stat_statements(boolean),0.02245825,4,69,0
+"SELECT *,
+				extract($1 from now() - last_archived_time) AS last_archive_age
+			FROM pg_stat_archiver",0.022174204152249133,289,0,0
+"SELECT $2 FROM ONLY ""public"".""product_detail"" x WHERE ""product_detail_id"" OPERATOR(pg_catalog.=) $1 FOR KEY SHARE OF x",0.02159910810810809,1776,8879,1
+"SELECT
+    has_table_privilege(
+      $1, $2
+    ) has_priviledge
+WHERE EXISTS(
+    SELECT has_schema_privilege($3, $4)
+    WHERE EXISTS(
+        SELECT cl.oid FROM pg_catalog.pg_class cl
+        LEFT JOIN pg_catalog.pg_namespace ns ON ns.oid=relnamespace
+        WHERE relname=$5 AND nspname=$6
+    )
+)",0.021207,1,2,0
+"SELECT
+	CASE
+		WHEN NOT pg_is_in_recovery() THEN $1
+                WHEN pg_last_wal_receive_lsn () = pg_last_wal_replay_lsn () THEN $2
+		ELSE GREATEST ($3, EXTRACT($4 FROM (now() - pg_last_xact_replay_timestamp())))
+	END AS lag,
+	CASE
+		WHEN pg_is_in_recovery() THEN $5
+		ELSE $6
+	END as is_replica,
+	GREATEST ($7, EXTRACT($8 FROM (now() - pg_last_xact_replay_timestamp()))) as last_replay",0.020741586206896555,290,0,0
+"SELECT
+		slot_name,
+		slot_type,
+		CASE WHEN pg_is_in_recovery() THEN
+		    pg_last_wal_receive_lsn() - $1
+		ELSE
+		    pg_current_wal_lsn() - $2
+		END AS current_wal_lsn,
+		COALESCE(confirmed_flush_lsn, $3) - $4 AS confirmed_flush_lsn,
+		active,
+		safe_wal_size,
+		wal_status
+	FROM pg_replication_slots",0.017148244827586197,290,0,0
+"SELECT slot_name, slot_type, xmin, pg_catalog.pg_wal_lsn_diff(restart_lsn, $1)::bigint, plugin, database, datoid, catalog_xmin, pg_catalog.pg_wal_lsn_diff(confirmed_flush_lsn, $2)::bigint FROM pg_catalog.pg_replication_slots WHERE NOT temporary AND NOT failover",0.016708,1,0,0
+SET DateStyle=ISO,0.0153855,4,0,0
+"SELECT pg_roles.rolname, pg_roles.rolconnlimit FROM pg_roles",0.01438336896551725,290,290,0
+"SELECT CASE WHEN usesuper
+       THEN pg_catalog.pg_is_in_recovery()
+       ELSE $1
+       END as inrecovery,
+       CASE WHEN usesuper AND pg_catalog.pg_is_in_recovery()
+       THEN pg_is_wal_replay_paused()
+       ELSE $2
+       END as isreplaypaused
+FROM pg_catalog.pg_user WHERE usename=current_user",0.013125000000000001,1,1,0
+SELECT version(),0.012742975820379959,579,0,0
+"SELECT CASE WHEN usesuper
+       THEN pg_catalog.pg_is_in_recovery()
+       ELSE $1
+       END as inrecovery,
+       CASE WHEN usesuper AND pg_catalog.pg_is_in_recovery()
+       THEN pg_is_wal_replay_paused()
+       ELSE $2
+       END as isreplaypaused
+FROM pg_catalog.pg_user WHERE usename=current_user",0.011875,1,1,0
+"SELECT pg_database.datname, pg_database.datconnlimit FROM pg_database",0.011781179310344824,290,290,0
+"SELECT slot_name, database, active,
+				(case pg_is_in_recovery() when $1 then pg_wal_lsn_diff(pg_last_wal_receive_lsn(), restart_lsn) else pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn) end) as pg_wal_lsn_diff
+			FROM pg_replication_slots",0.011433128027681663,289,0,0
+"SELECT
+		buffers_clean
+		,maxwritten_clean
+		,buffers_alloc
+		,stats_reset
+	FROM pg_stat_bgwriter",0.008374641379310349,290,0,0
+SELECT version(),0.0063855000000000006,4,0,0
+SET client_encoding='utf-8',0.005177,4,0,0
+SET client_min_messages=notice,0.0045520000000000005,4,0,0
+SHOW TRANSACTION ISOLATION LEVEL,0.004375,1,0,0
+SET client_encoding='utf-8',0.0041145,4,0,0
+SELECT version(),0.0035730000000000007,4,0,0
+SET client_min_messages=notice,0.00345825,4,0,0

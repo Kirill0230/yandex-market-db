@@ -1,0 +1,18 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:haproxy}:${POSTGRES_PORT_INNER:5000}/${POSTGRES_DB:yandex_market}
+    username: ${POSTGRES_USER:user}
+    password: ${POSTGRES_PASSWORD:user}
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 5000
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus

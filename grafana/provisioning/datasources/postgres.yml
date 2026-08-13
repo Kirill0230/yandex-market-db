@@ -1,0 +1,16 @@
+
+apiVersion: 1
+ 
+datasources:
+  - name: PostgreSQL
+    type: grafana-postgresql-datasource
+    uid: bflde5isro2yoa
+    access: proxy
+    url: haproxy:5000
+    user: postgres_exporter
+    jsonData:
+      database: yandex_market
+      sslmode: disable
+      postgresVersion: 1700
+    secureJsonData:
+      password: password

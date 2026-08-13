@@ -1,0 +1,28 @@
+WindowAgg  (cost=12522.68..12522.85 rows=11 width=48) (actual time=57.422..59.256 rows=5 loops=1)
+  Buffers: shared hit=7052 dirtied=1
+  ->  Sort  (cost=12522.66..12522.69 rows=11 width=16) (actual time=57.415..59.247 rows=5 loops=1)
+        Sort Key: pph.change_date
+        Sort Method: quicksort  Memory: 25kB
+        Buffers: shared hit=7052 dirtied=1
+        ->  Gather  (cost=3360.04..12522.47 rows=11 width=16) (actual time=11.030..59.209 rows=5 loops=1)
+              Workers Planned: 2
+              Workers Launched: 2
+              Buffers: shared hit=7049 dirtied=1
+              ->  Hash Join  (cost=2360.04..11521.37 rows=5 width=16) (actual time=20.421..52.091 rows=2 loops=3)
+                    Hash Cond: (pph.product_detail_id = pd.product_detail_id)
+                    Buffers: shared hit=7049 dirtied=1
+                    ->  Parallel Seq Scan on product_price_history pph  (cost=0.00..8696.17 rows=177199 width=20) (actual time=0.177..37.921 rows=141872 loops=3)
+                          Filter: (change_date >= (now() - '365 days'::interval))
+                          Rows Removed by Filter: 58346
+                          Buffers: shared hit=4311 dirtied=1
+                    ->  Hash  (cost=2360.00..2360.00 rows=3 width=4) (actual time=7.258..7.258 rows=2 loops=3)
+                          Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                          Buffers: shared hit=2580
+                          ->  Seq Scan on product_detail pd  (cost=0.00..2360.00 rows=3 width=4) (actual time=7.037..7.250 rows=2 loops=3)
+                                Filter: (product_id = 1)
+                                Rows Removed by Filter: 119998
+                                Buffers: shared hit=2580
+Planning:
+  Buffers: shared hit=221
+Planning Time: 1.492 ms
+Execution Time: 59.380 ms

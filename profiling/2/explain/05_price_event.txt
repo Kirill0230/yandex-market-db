@@ -1,0 +1,13 @@
+                                                 QUERY PLAN                                                  
+-------------------------------------------------------------------------------------------------------------
+ Insert on product_price_history  (cost=0.00..0.02 rows=0 width=0) (actual time=0.367..0.367 rows=0 loops=1)
+   Buffers: shared hit=36 read=5 dirtied=3
+   ->  Result  (cost=0.00..0.02 rows=1 width=32) (actual time=0.102..0.102 rows=1 loops=1)
+         Buffers: shared hit=10 dirtied=1
+ Planning:
+   Buffers: shared hit=3
+ Planning Time: 0.050 ms
+ Trigger for constraint fk_product_price_history_detail: time=0.495 calls=1
+ Execution Time: 0.875 ms
+(9 rows)
+

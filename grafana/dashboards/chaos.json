@@ -1,0 +1,59 @@
+{
+  "title": "Chaos / Failover",
+  "uid": "chaos-failover",
+  "schemaVersion": 38,
+  "version": 2,
+  "refresh": "5s",
+  "time": { "from": "now-15m", "to": "now" },
+  "tags": ["chaos", "patroni"],
+  "panels": [
+    {
+      "id": 1, "type": "timeseries",
+      "title": "Patroni: роль (1=primary, 0=replica)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "targets": [
+        { "expr": "patroni_primary", "legendFormat": "{{instance}} primary" },
+        { "expr": "patroni_replica", "legendFormat": "{{instance}} replica" }
+      ],
+      "fieldConfig": { "defaults": { "min": 0, "max": 1 } }
+    },
+    {
+      "id": 2, "type": "stat",
+      "title": "etcd up",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "targets": [{ "expr": "up{job=\"etcd\"}" }],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }
+          ]
+        }
+      }
+    },
+    {
+      "id": 3, "type": "stat",
+      "title": "Patroni up",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "targets": [{ "expr": "up{job=\"patroni\"}", "legendFormat": "{{instance}}" }]
+    },
+    {
+      "id": 4, "type": "timeseries",
+      "title": "HAProxy: состояние серверов postgres_back",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "targets": [
+        { "expr": "haproxy_server_status{proxy=\"postgres_back\"}", "legendFormat": "{{server}}" }
+      ]
+    },
+    {
+      "id": 5, "type": "timeseries",
+      "title": "pg_up (postgres_exporter)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "targets": [{ "expr": "pg_up", "legendFormat": "{{instance}}" }]
+    }
+  ]
+}

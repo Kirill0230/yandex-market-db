@@ -1,0 +1,42 @@
+Nested Loop  (cost=1.43..85.72 rows=3 width=438) (actual time=0.431..0.435 rows=1 loops=1)
+  Buffers: shared hit=18 read=7
+  ->  Nested Loop  (cost=1.00..17.07 rows=1 width=370) (actual time=0.163..0.165 rows=1 loops=1)
+        Buffers: shared hit=5 read=5
+        ->  Nested Loop  (cost=0.71..16.75 rows=1 width=359) (actual time=0.112..0.113 rows=1 loops=1)
+              Buffers: shared hit=4 read=3
+              ->  Index Scan using product_pkey on product p  (cost=0.42..8.44 rows=1 width=344) (actual time=0.052..0.053 rows=1 loops=1)
+                    Index Cond: (product_id = 1)
+                    Buffers: shared hit=3 read=1
+              ->  Index Scan using product_subcategory_pkey on product_subcategory ps  (cost=0.29..8.31 rows=1 width=23) (actual time=0.054..0.054 rows=1 loops=1)
+                    Index Cond: (product_subcategory_id = p.product_subcategory_id)
+                    Buffers: shared hit=1 read=2
+        ->  Index Scan using product_category_pkey on product_category pc  (cost=0.29..0.32 rows=1 width=19) (actual time=0.050..0.050 rows=1 loops=1)
+              Index Cond: (product_category_id = ps.product_category_id)
+              Buffers: shared hit=1 read=2
+  ->  Index Scan using idx_product_detail_product_id on product_detail pd  (cost=0.43..16.48 rows=3 width=24) (actual time=0.050..0.051 rows=1 loops=1)
+        Index Cond: (product_id = 1)
+        Buffers: shared hit=4
+  SubPlan 1
+    ->  Aggregate  (cost=8.44..8.45 rows=1 width=32) (actual time=0.129..0.129 rows=1 loops=1)
+          Buffers: shared hit=2 read=2
+          ->  Index Scan using idx_review_products_product_detail_id on review_products rp  (cost=0.42..8.44 rows=1 width=4) (actual time=0.112..0.113 rows=1 loops=1)
+                Index Cond: (product_detail_id = pd.product_detail_id)
+                Buffers: shared hit=2 read=2
+  SubPlan 2
+    ->  Aggregate  (cost=4.44..4.45 rows=1 width=8) (actual time=0.045..0.045 rows=1 loops=1)
+          Buffers: shared hit=4
+          ->  Index Only Scan using idx_review_products_product_detail_id on review_products rp_1  (cost=0.42..4.44 rows=1 width=0) (actual time=0.041..0.042 rows=1 loops=1)
+                Index Cond: (product_detail_id = pd.product_detail_id)
+                Heap Fetches: 0
+                Buffers: shared hit=4
+  SubPlan 3
+    ->  Aggregate  (cost=4.46..4.47 rows=1 width=8) (actual time=0.036..0.036 rows=1 loops=1)
+          Buffers: shared hit=3
+          ->  Index Only Scan using idx_favorites_product_id on favorites f  (cost=0.42..4.46 rows=2 width=0) (actual time=0.035..0.035 rows=0 loops=1)
+                Index Cond: (product_id = p.product_id)
+                Heap Fetches: 0
+                Buffers: shared hit=3
+Planning:
+  Buffers: shared hit=378 read=26
+Planning Time: 3.794 ms
+Execution Time: 0.689 ms

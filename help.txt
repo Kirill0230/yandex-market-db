@@ -1,0 +1,30 @@
+docker compose up -d --build
+
+docker compose exec backup sh /usr/local/bin/db_backup.sh - сделать бэкап
+
+docker compose exec backup sh /usr/local/bin/restore.sh backup_yandex_market_20260522095001.dump - востановить
+
+#   restore.sh                  # восстановить из САМОГО СВЕЖЕГО дампа в бакете
+#   restore.sh <имя_файла.dump> # восстановить из конкретного дампа
+#   restore.sh --list           # показать список доступных дампов и выйти
+
+docker compose stop postgres2
+docker compose stop postgres1
+
+docker compose start postgres2
+docker compose start postgres1
+
+docker compose restart haproxy
+
+
+k6 run load/k6_script.js --summary-export profiling/1/k6_summary.json
+
+SELECT pg_stat_statements_reset(); - обнулить все счетчики статистики;
+
+
+накат одной
+docker compose run --rm --entrypoint liquibase liquibase --search-path=/liquibase/changelog --changelog-file=changelog.xml --url="jdbc:postgresql://haproxy:5000/yandex_market" --username=user --password=user update-count --count=1
+
+
+откат
+docker compose run --rm --entrypoint liquibase liquibase --search-path=/liquibase/changelog --changelog-file=changelog.xml --url="jdbc:postgresql://haproxy:5000/yandex_market" --username=user --password=user rollback-count --count=1

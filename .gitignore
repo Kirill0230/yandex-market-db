@@ -1,0 +1,15 @@
+.env
+data/postgres/
+.DS_Store
+__MACOSX/
+.vscode/
+.idea/
+backend/build/
+backend/.gradle/metabase-plugins/
+metabase-plugins/
+backend/.gradle/
+backend/build/
+backend/bin/
+.DS_Store
+__MACOSX/
+.vscode/

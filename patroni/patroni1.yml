@@ -1,0 +1,67 @@
+scope: postgres-cluster
+namespace: /service/
+name: postgres1
+
+restapi:
+  listen: 0.0.0.0:8008
+  connect_address: postgres1:8008
+
+etcd3:
+  hosts: etcd:2379
+
+bootstrap:
+  dcs:
+    ttl: 30
+    loop_wait: 10
+    retry_timeout: 10
+    maximum_lag_on_failover: 1048576
+
+    postgresql:
+      use_pg_rewind: true
+      use_slots: true
+      parameters:
+        wal_level: replica
+        hot_standby: "on"
+        max_wal_senders: 10
+        max_replication_slots: 10
+        wal_keep_size: 128MB
+        shared_preload_libraries: pg_stat_statements
+        pg_stat_statements.track: all
+
+  initdb:
+    - encoding: UTF8
+    - data-checksums
+
+  pg_hba:
+    - local all all trust
+    - host all all 127.0.0.1/32 trust
+    - host replication replicator 0.0.0.0/0 md5
+    - host all all 0.0.0.0/0 md5
+
+  post_init: bash /config/post_init.sh
+
+postgresql:
+  listen: 0.0.0.0:5432
+  connect_address: postgres1:5432
+  data_dir: /var/lib/postgresql/data/pgdata
+  bin_dir: /usr/lib/postgresql/17/bin
+  pgpass: /tmp/pgpass
+
+  authentication:
+    superuser:
+      username: postgres
+      password: postgres
+    replication:
+      username: replicator
+      password: replicator
+
+  parameters:
+    unix_socket_directories: /var/run/postgresql
+    shared_preload_libraries: pg_stat_statements
+    pg_stat_statements.track: all
+
+tags:
+  nofailover: false
+  noloadbalance: false
+  clonefrom: false
+  nosync: false
